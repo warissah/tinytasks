@@ -1,5 +1,7 @@
 # BeachHacks — ADHD execution coach (hackathon starter)
 
+**Team 41 · BeachHack 9.0** — [GitHub repo](https://github.com/warissah/beachhack9.0--team41--project)
+
 Barebones **FastAPI** + **Vite/React** monorepo: API contract, CORS, and stub routes are wired so the team can run **backend + frontend together** before any real API keys. Product plans live under [`docs/`](docs/).
 
 ## Documentation
