@@ -41,4 +41,8 @@ class PlanResponse(BaseModel):
     tiny_first_step: TinyFirstStep
     steps: list[PlanStep]
     implementation_intention: ImplementationIntention
-    safety_note: str
+    # Default lets Gemini send ""; API layer replaces with PLAN_SAFETY_NOTE for real responses.
+    safety_note: str = Field(
+        default="",
+        description="Server fills with standard disclaimer; model may omit or use empty string.",
+    )

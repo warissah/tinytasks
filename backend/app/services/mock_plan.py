@@ -1,5 +1,6 @@
 import uuid
 
+from app.constants import PLAN_SAFETY_NOTE
 from app.schemas.plan import (
     ImplementationIntention,
     PlanResponse,
@@ -44,8 +45,5 @@ def build_stub_plan(goal: str) -> PlanResponse:
             if_condition="When I open my laptop",
             then_action="I start a 5-minute timer and only do step 1",
         ),
-        safety_note=(
-            "Non-clinical tool. If you are in crisis, contact local emergency services "
-            "or 988 (US)."
-        ),
+        safety_note=PLAN_SAFETY_NOTE,
     )

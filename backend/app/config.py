@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -19,6 +20,11 @@ class Settings(BaseSettings):
 
     # Google Gen AI (Gemini) — used by google-genai SDK; optional until routes call the model
     gemini_api_key: str | None = None
+    gemini_model: str = "gemini-3-flash-preview"
+    # Gemini 3: minimal/low/medium/high — omit or leave unset to use API default (often lowest latency).
+    gemini_thinking_level: Literal["minimal", "low", "medium", "high"] | None = None
+    # Log wall-clock ms per generate_content call (model, thinking_level, attempt) for latency experiments
+    gemini_log_timing: bool = True
 
     # Twilio WhatsApp (T3 coordinates console; values live on server env in prod)
     twilio_account_sid: str | None = None
