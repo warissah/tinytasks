@@ -9,7 +9,8 @@ You own **API correctness**, **JSON schemas**, and **calling Gemini** (via OpenC
 - Replace **stub** `POST /plan` with real Gemini output that validates against Pydantic models.
 - Implement `POST /nudge`, session routes, Mongo persistence.
 - Secure `POST /internal/reminders/fire` with `X-Internal-Key` (see `backend/app/config.py`).
-- Keep **one source of truth** for schemas in `backend/app/schemas/`.
+- **Strong integration (Level B):** When the Fetch **uAgent** calls `/internal/reminders/fire`, accept optional **`agent_context`** (`energy_hint`, `push_back_start_minutes`, `replan_intensity`). Load task/user from **Mongo**, merge with last **WhatsApp** state, then: update **next nudge time**, call **Gemini** to **subdivide or soften** the plan when `replan_intensity` is `smaller_steps` / `lighter`, send outbound line via **Twilio**. See [`../MASTER_PLAN.md`](../MASTER_PLAN.md) (sections **Fetch ecosystem** and **Strong integration story**).
+- Keep **one source of truth** for schemas in `backend/app/schemas/` (including `app/schemas/internal.py` for `AgentCallbackContext`).
 
 ## Where to work
 

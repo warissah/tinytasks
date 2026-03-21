@@ -5,7 +5,7 @@
 - **Ship one vertical slice**: user enters a goal on the web → gets a breakdown → can text WhatsApp when stuck → **Fetch.ai-driven proactive nudges** (e.g. post-plan check-in) → sees progress in the app.
 - **Defer everything else**: fancy analytics, multi-user social, full calendar sync, polished mobile apps, complex multi-agent swarms beyond one reminder loop.
 - **AI stack**: OpenClaw (or OpenAI-compatible layer) with **Google Gemini** for **language + JSON plans/nudges**; keep prompts **JSON-shaped** so web + WhatsApp share one contract.
-- **Agent stack (mandatory)**: **Fetch.ai** owns **time-based / proactive orchestration** (trigger follow-ups); it does **not** replace Gemini for generating plan text — it **calls your backend**, which may then call Gemini for copy or use a stored template.
+- **Agent stack (mandatory)**: **Fetch.ai** (`uAgents` + **Agentverse**; optional **ASI:One** surface) owns **proactive orchestration** — see [Fetch ecosystem vs our stack](#fetch-ecosystem-asione-uagents-agentverse-vs-our-stack). It does **not** replace Gemini for primary planning copy; it **calls your backend** with optional **structured metadata** so you can **snooze**, **replan**, or soften messages (**strong integration story** — [below](#strong-integration-story-level-b--chosen)).
 - **ElevenLabs**: **out of scope** (ignore).
 - **Safety**: non-clinical disclaimer + crisis redirect text in web + WhatsApp (judges care).
 
@@ -17,16 +17,45 @@
 | **WhatsApp** | `start`, `stuck`, `done` (and maybe `plan`) → same backend logic as web; persist last task context per user |
 | **Data** | MongoDB Atlas: users (phone/web id), tasks, sessions, **pending reminder jobs** (when to nudge, channel, task id), WhatsApp thread state |
 | **Deploy** | Vultr: one backend + one frontend (static or SSR) |
-| **Fetch.ai (required)** | At least one **agent/workflow** that fires on a schedule or event and hits your API to **send a WhatsApp nudge** (or enqueue it) — proves “autonomous agent” for the sponsor track |
+| **Fetch.ai (required)** | **uAgent** published on **Agentverse** that fires on a schedule/event and **POST**s to your API (with optional **`agent_context`**) — proactive nudge + **strong story** for judges |
+
+## Fetch ecosystem (ASI:One, uAgents, Agentverse) vs our stack
+
+These are **Fetch.ai** concepts from the sponsor stack; they map to our app like this:
+
+| Fetch concept | What it is | Role in *this* project |
+|---------------|------------|-------------------------|
+| **uAgents** | Python framework for **agents** that use Fetch protocols and can integrate with HTTP / other agents | Build the **proactive reminder agent** that triggers **`POST /internal/reminders/fire`**. The uAgent is **orchestration + scheduling + optional metadata** — not your primary LLM. |
+| **Agentverse** | **Registry / discovery / deploy** for agents (“where the agent lives” for the ecosystem) | **Publish** your uAgent so the demo can show: *our coach agent is live on Agentverse*. Judges can see discovery + your HTTPS callback story. |
+| **ASI:One** | Fetch’s **agentic assistant / chat** layer that can connect to ecosystem agents | **Optional** for MVP. Your users mainly hit **web + WhatsApp → FastAPI**. If time allows, add a slide: ASI:One could **invoke** your published agent or backend — do **not** block the core demo on ASI:One unless the track requires it. |
+
+**Where “intelligence” lives**
+
+- **Gemini (backend)** — plans, nudges, **replanning** smaller steps, compassionate copy (JSON-shaped responses).
+- **User replies** (“I’m burnt out”) — arrive on **Twilio → FastAPI**, not through Fetch. Backend updates **Mongo** (energy, snooze, flags) and may call Gemini to **split or soften** the plan.
+- **Fetch uAgent** — decides **when** to check in and can attach **`agent_context`** (e.g. energy hint, push-back minutes) so the backend can **persist schedule changes** and generate the right WhatsApp line.
 
 ## Fetch.ai vs Gemini (division of labor)
 
 | Layer | Responsibility |
 |--------|----------------|
-| **Gemini (via OpenClaw)** | Natural language + structured JSON: **plan**, **stuck nudge** text, **two-minute re-entry** steps when invoked |
-| **Fetch.ai** | **When** to act: e.g. “15 minutes after plan created, ping user if no `session/end`”; **invokes FastAPI** with a signed payload — your backend then sends Twilio message + optionally asks Gemini for fresh text |
+| **Gemini (via OpenClaw)** | Natural language + structured JSON: **plan**, **stuck nudge** text, **two-minute re-entry**, and **replan** when backend asks (e.g. smaller steps after burnout) |
+| **Fetch (uAgent + Agentverse)** | **When** to act and **optional structured hints** to the backend: fire **`/internal/reminders/fire`** after e.g. 15m if no `session/end`; published agent proves the sponsor integration |
 
-Do **not** try to replace Gemini with Fetch for planning copy in 24h; **do** make Fetch visible in the **demo** as the **proactive** layer.
+Do **not** replace Gemini with Fetch for core planning copy in 24h; **do** show **uAgents + Agentverse** in the **demo** as the **proactive agent layer**.
+
+## Strong integration story (Level B) — **chosen**
+
+We use more than a dumb timer. The **uAgent** sends a **rich callback** so **FastAPI** can:
+
+1. Load **task + user** from **Mongo** (session completed? snooze? burnout flag from last WhatsApp?).
+2. Use **`agent_context`** (optional) to **push back** the next nudge (`push_back_start_minutes`), request **smaller steps** (`replan_intensity`), or set **energy** hints for Gemini.
+3. Call **Gemini** to produce the **WhatsApp message text** (or a shorter plan) when `replan_intensity` is `smaller_steps` / `lighter`.
+4. Send via **Twilio** outbound and update **`next_reminder_at`** / plan version in Mongo.
+
+**User says “burnt out” in WhatsApp** → handled on **`POST /webhooks/twilio`** → T2 persists state → **next** uAgent or reminder respects softer pacing (metadata can also be mirrored into `agent_context` if your uAgent reads backend state before firing — follow Fetch docs for agent memory).
+
+This keeps **one source of truth** (FastAPI + Mongo) while the **Fetch stack** provides the **sponsor-visible agent** and **scheduling**.
 
 ## Architecture (minimal)
 
@@ -34,14 +63,15 @@ Do **not** try to replace Gemini with Fetch for planning copy in 24h; **do** mak
 flowchart LR
   Web[WebApp] --> API[BackendAPI]
   WA[WhatsAppWebhook] --> API
-  FetchAgent[FetchAgent] -->|"HTTPS_trigger"| API
+  UAgent[uAgent_Agentverse] -->|"HTTPS plus agent_context"| API
+  ASI[ASI_One_optional] -.->|"optional invoke"| UAgent
   API --> OpenClaw[OpenClawOrCompatibleRouter]
   OpenClaw --> Gemini[GeminiAPI]
   API --> Mongo[MongoDBAtlas]
   API --> Twilio[TwilioWhatsApp]
 ```
 
-**Fetch.ai**: Expose e.g. `POST /internal/reminders/fire` with **shared secret header** + body `{ user_id, task_id, reminder_kind }`. Handler loads task, optionally calls Gemini for one short line, sends via **Twilio** outbound.
+**Internal callback**: `POST /internal/reminders/fire` with **shared secret** + body including optional **`agent_context`** (see API section). Handler may **replan** / **snooze** / send Twilio message.
 
 ## Tech stack (locked for team)
 
@@ -104,10 +134,41 @@ flowchart LR
 
 - Minimal: `task_id`, `started_at`, `ended_at`, `reflection` (`done` | `blocked` | `partial`).
 
-### `POST /internal/reminders/fire` (Fetch.ai → FastAPI; **not** public)
+### `POST /internal/reminders/fire` (Fetch uAgent → FastAPI; **not** public)
 
 - **Auth**: header e.g. `X-Internal-Key` matching server env.
-- **Body** (example): `{ "user_id": "...", "task_id": "...", "reminder_kind": "check_in_15m" }`.
+- **Body** (minimal):
+
+```json
+{
+  "user_id": "user-uuid",
+  "task_id": "task-uuid",
+  "reminder_kind": "check_in_15m"
+}
+```
+
+- **Body** (strong integration — optional `agent_context` from uAgent / Agentverse workflow):
+
+```json
+{
+  "user_id": "user-uuid",
+  "task_id": "task-uuid",
+  "reminder_kind": "check_in_15m",
+  "agent_context": {
+    "energy_hint": "low",
+    "push_back_start_minutes": 120,
+    "replan_intensity": "smaller_steps"
+  }
+}
+```
+
+| Field | Purpose |
+|-------|---------|
+| `agent_context.energy_hint` | Hints Gemini + templates (`unknown` / `low` / `medium` / `high`). |
+| `agent_context.push_back_start_minutes` | Backend persists **next nudge** at least this many minutes later (snooze / recovery pacing). |
+| `agent_context.replan_intensity` | `same` → status check-in only; `smaller_steps` / `lighter` → backend may call **Gemini** to **subdivide** or soften the plan, then save new `plan_id` / steps in Mongo. |
+
+**T2 implementation** (when ready): load Mongo task, merge WhatsApp-reported state, apply `agent_context`, then **Gemini** + **Twilio** outbound.
 
 **Prompt rule**: Ask Gemini to output **only JSON** matching the Pydantic schema; FastAPI validates; on failure, one retry with “fix JSON only”.
 
@@ -144,16 +205,18 @@ Roles are **not** meant to be silos. If **T2 (backend)** or **T1 (frontend)** is
 ## Judging narrative (~2 minutes)
 
 1. Overwhelming goal in web → instant tiny plan with if/then (Gemini).
-2. **Fetch.ai** fires (e.g. 15m check-in) → proactive WhatsApp nudge via backend.
-3. Phone: “stuck” → 2-minute re-entry step (Gemini).
+2. **uAgent** published on **Agentverse** fires a check-in → **`/internal/reminders/fire`** with optional **`agent_context`** → backend may **replan** / **snooze** → **WhatsApp** nudge (Gemini + Twilio).
+3. Phone: “burnt out” / “stuck” → **Twilio → backend** updates state → next nudge respects **lighter** pacing (Gemini).
 4. Web shows session completed — persistence (Mongo).
+5. Optional slide: **ASI:One** could invoke your agent — not required for MVP.
 
 ## Risks and mitigations
 
 | Risk | Mitigation |
 |------|------------|
 | WhatsApp setup slow | Twilio sandbox hour 0; fallback = web-only chat |
-| Fetch.ai integration unclear | Smallest path: HTTP callback + secret; one reminder type (`check_in_15m`) |
+| Fetch.ai integration unclear | **uAgent** + **Agentverse** publish + **Level B** `agent_context`; one reminder kind (`check_in_15m`) first |
+| ASI:One scope creep | **Optional** demo only; core path = web + WhatsApp + uAgent callback |
 | AI latency | Short prompts, `max_tokens` cap |
 | Scope creep | Lock MVP at hour 2 |
 

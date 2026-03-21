@@ -8,13 +8,15 @@ Barebones **FastAPI** + **Vite/React** monorepo: API contract, CORS, and stub ro
 
 | Doc | Audience |
 |-----|----------|
-| [`docs/MASTER_PLAN.md`](docs/MASTER_PLAN.md) | Whole team — architecture, JSON API, 24h schedule |
+| [`docs/MASTER_PLAN.md`](docs/MASTER_PLAN.md) | Whole team — architecture, JSON API, **ASI:One / uAgents / Agentverse** vs our stack, **Level B** integration, 24h schedule |
 | [`docs/plans/T1_FRONTEND.md`](docs/plans/T1_FRONTEND.md) | Frontend (Vite + React) |
 | [`docs/plans/T2_BACKEND.md`](docs/plans/T2_BACKEND.md) | Backend (FastAPI, Gemini, Mongo) |
 | [`docs/plans/T3_WHATSAPP.md`](docs/plans/T3_WHATSAPP.md) | WhatsApp / Twilio |
 | [`docs/plans/T4_DEVOPS_FETCH.md`](docs/plans/T4_DEVOPS_FETCH.md) | DevOps, Fetch.ai, deploy, demo |
 
 **Load balancing:** T4 can help **backend** with deploy/env/CORS and **frontend** with prod `VITE_API_URL` / build checks; T3 can help **frontend** (e.g. in-app “Stuck” → `POST /nudge`) when WhatsApp is behind. See [**Load balancing** in `docs/MASTER_PLAN.md`](docs/MASTER_PLAN.md#load-balancing-share-the-work).
+
+**Fetch.ai:** **uAgents** + **Agentverse** drive proactive callbacks to FastAPI; **Gemini** stays the main “coach brain”; user replies go **WhatsApp → backend**. Details: [**Fetch ecosystem** / **Strong integration** in `docs/MASTER_PLAN.md`](docs/MASTER_PLAN.md#fetch-ecosystem-asione-uagents-agentverse-vs-our-stack).
 
 ## Quick start (no API keys required)
 

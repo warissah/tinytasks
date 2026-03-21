@@ -24,10 +24,17 @@ def fire_reminder(
     if x_internal_key != settings.internal_api_key:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid internal key")
 
+    extra = ""
+    if body.agent_context is not None:
+        extra = (
+            f" agent_context={body.agent_context.model_dump(exclude_none=True)}"
+            " (T2: persist snooze/replan + Gemini message)"
+        )
+
     return ReminderFireResponse(
         status="queued_stub",
         detail=(
             f"Would send reminder={body.reminder_kind} for user={body.user_id} "
-            f"task={body.task_id} (wire Twilio outbound next)"
+            f"task={body.task_id} (wire Twilio outbound next).{extra}"
         ),
     )
