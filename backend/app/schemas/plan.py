@@ -1,0 +1,44 @@
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+
+class PlanRequest(BaseModel):
+    goal: str = Field(..., min_length=1)
+    horizon: Literal["today", "week", "long"] = "today"
+    available_minutes: int = Field(60, ge=5, le=24 * 60)
+    energy: Literal["low", "medium", "high"] = "medium"
+
+
+class SuggestedWindow(BaseModel):
+    label: str | None = None
+    start: str | None = None
+    end: str | None = None
+
+
+class PlanStep(BaseModel):
+    id: str
+    title: str
+    description: str
+    estimated_minutes: int = Field(..., ge=1)
+    suggested_window: SuggestedWindow | None = None
+
+
+class TinyFirstStep(BaseModel):
+    title: str
+    description: str
+    estimated_minutes: int = Field(..., ge=1)
+
+
+class ImplementationIntention(BaseModel):
+    if_condition: str
+    then_action: str
+
+
+class PlanResponse(BaseModel):
+    plan_id: str
+    summary: str
+    tiny_first_step: TinyFirstStep
+    steps: list[PlanStep]
+    implementation_intention: ImplementationIntention
+    safety_note: str
