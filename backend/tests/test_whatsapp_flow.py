@@ -4,7 +4,7 @@ import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from app.db.chat_threads import get_thread, replace_thread
+from app.db.chat_threads import get_thread, replace_thread, set_active_plan_id
 from app.schemas.chat import DraftPlanFields
 from app.services.chat_pipeline import whatsapp_thread_id_for_user
 from app.services.whatsapp_logic import get_whatsapp_reply_async
@@ -62,5 +62,39 @@ def test_help_command_lists_supported_commands() -> None:
         assert "BUILD" in reply
         assert "STUCK" in reply
         assert "DONE" in reply
+
+    asyncio.run(_run())
+
+
+def test_done_resets_whatsapp_conversation_but_keeps_active_plan() -> None:
+    async def _run() -> None:
+        user_id = "user-123"
+        thread_id = whatsapp_thread_id_for_user(user_id)
+        await replace_thread(
+            None,
+            thread_id,
+            messages=[
+                {"role": "user", "content": "milk and oranges"},
+                {"role": "assistant", "content": "What else do you need from the store?"},
+            ],
+            draft=DraftPlanFields(
+                goal="pick up groceries",
+                horizon="today",
+                available_minutes=20,
+                energy="low",
+            ),
+        )
+        await set_active_plan_id(None, thread_id, "plan-123")
+
+        reply = await get_whatsapp_reply_async(None, user_id, "done", "DONE")
+
+        doc = await get_thread(None, thread_id)
+        assert doc is not None
+        assert doc["messages"] == []
+        assert doc["draft"]["goal"] == ""
+        assert doc.get("active_plan_id") == "plan-123"
+        assert "PLAN <task>" in reply
+        assert "STUCK" in reply
+        assert "keep going" not in reply.lower()
 
     asyncio.run(_run())

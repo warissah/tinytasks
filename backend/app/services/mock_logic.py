@@ -13,7 +13,7 @@ def handle_stuck(user_id: str) -> str:
 
 
 def handle_done(user_id: str) -> str:
-    return "Nice. That counts. Want to keep going or take a short break?"
+    return "Nice. That counts."
 
 
 def handle_unknown() -> str:

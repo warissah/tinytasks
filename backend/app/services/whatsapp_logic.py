@@ -5,7 +5,11 @@ import logging
 from fastapi import HTTPException
 
 from app.config import get_settings
-from app.db.chat_threads import get_active_plan_id_for_thread, replace_thread
+from app.db.chat_threads import (
+    get_active_plan_id_for_thread,
+    replace_thread,
+    reset_thread_conversation,
+)
 from app.db.plans import find_latest_plan_id_for_phone, find_latest_plan_id_for_user_id
 from app.schemas.chat import DraftPlanFields
 from app.schemas.nudge import NudgeRequest
@@ -181,7 +185,7 @@ def _next_step_hint() -> str:
 
 
 def _follow_up_hint_for_done() -> str:
-    return "Next: PLAN <task> for something new, STUCK if you hit a wall, or HELP for commands."
+    return "Next: PLAN <task> for something new, STUCK if you need help on this plan, or HELP for commands."
 
 
 def _append_hint(message: str, hint: str) -> str:
@@ -322,6 +326,7 @@ async def get_whatsapp_reply_async(
             reply = handle_done(user_id)
             if db is not None:
                 await insert_demo_event(db, "task_complete", {})
+            await reset_thread_conversation(db, whatsapp_thread_id_for_user(user_id))
             return _append_hint(reply, _follow_up_hint_for_done())
 
         if command in ("start", "plan"):

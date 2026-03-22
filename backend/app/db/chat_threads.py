@@ -102,6 +102,21 @@ async def replace_thread(
     await _mem_put(doc)
 
 
+async def reset_thread_conversation(
+    db: AsyncIOMotorDatabase | None,
+    thread_id: str,
+) -> None:
+    """Clear conversational memory while preserving any linked active plan."""
+    existing = await get_thread(db, thread_id)
+    doc = _new_doc(thread_id)
+    if existing is not None and existing.get("active_plan_id"):
+        doc["active_plan_id"] = existing["active_plan_id"]
+    if db is not None:
+        await db[CHAT_THREADS_COLLECTION].replace_one({"thread_id": thread_id}, doc, upsert=True)
+        return
+    await _mem_put(doc)
+
+
 async def get_active_plan_id_for_thread(
     db: AsyncIOMotorDatabase | None, thread_id: str
 ) -> str | None:
