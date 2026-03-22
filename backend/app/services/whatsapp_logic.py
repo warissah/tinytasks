@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import logging
 
+from fastapi import HTTPException
+
 from app.config import get_settings
 from app.schemas.nudge import NudgeRequest
 from app.schemas.plan import PlanRequest
+from app.services.chat_pipeline import run_chat_turn, run_finalize, whatsapp_thread_id_for_user
 from app.services.gemini_nudge import generate_nudge
 from app.services.gemini_plan import generate_plan
 from app.services.mock_logic import handle_done, handle_unknown
 from app.services.mock_plan import build_stub_plan
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 logger = logging.getLogger(__name__)
 
@@ -167,4 +171,48 @@ def get_whatsapp_reply(user_id: str, command: str, raw_body: str = "") -> str:
 
     except Exception:
         logger.exception("WhatsApp reply generation failed")
+        return "Something went wrong on our side. Please try again."
+
+
+def _http_detail(exc: HTTPException) -> str:
+    d = exc.detail
+    if isinstance(d, str):
+        return d
+    return "Can't build your plan yet. Keep chatting."
+
+
+async def get_whatsapp_reply_async(
+    db: AsyncIOMotorDatabase | None,
+    user_id: str,
+    command: str,
+    raw_body: str = "",
+) -> str:
+    """
+    WhatsApp entry: finalize + free-form chat share one thread per phone (wa-<user_id>).
+    start / stuck / done stay on the keyword path.
+    """
+    try:
+        if command == "finalize":
+            try:
+                plan = await run_finalize(db, whatsapp_thread_id_for_user(user_id))
+            except HTTPException as e:
+                return _http_detail(e)
+            first = plan.tiny_first_step.title
+            return (
+                f"Plan ready.\n{plan.summary}\n\nFirst step: {first}\n\n"
+                f"(Reply STUCK anytime. Not clinical — crisis: 988.)"
+            )[:1500]
+
+        if command == "unknown":
+            out = await run_chat_turn(
+                db,
+                thread_id=None,
+                text=(raw_body or "").strip() or ".",
+                stable_thread_id=whatsapp_thread_id_for_user(user_id),
+            )
+            return out.reply[:1500]
+
+        return get_whatsapp_reply(user_id, command, raw_body)
+    except Exception:
+        logger.exception("WhatsApp async reply failed")
         return "Something went wrong on our side. Please try again."

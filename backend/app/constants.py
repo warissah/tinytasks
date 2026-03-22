@@ -13,3 +13,4 @@ PLAN_SAFETY_NOTE = (
 # Motor / PyMongo collection names — use these symbols in repositories (avoid ad-hoc "tasks").
 PLANS_COLLECTION = "plans"
 SESSIONS_COLLECTION = "sessions"
+CHAT_THREADS_COLLECTION = "chat_threads"

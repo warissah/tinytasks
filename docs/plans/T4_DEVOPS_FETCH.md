@@ -1,8 +1,8 @@
-# T4 — DevOps, Fetch.ai (uAgents + Agentverse), Mongo Atlas, Render + Vercel, demo
+# T4 — DevOps, Fetch.ai (uAgents + Agentverse), Mongo Atlas, Railway + Vercel, demo
 
 You make the **demo reliable**: deploy, secrets, **Fetch stack story**, and the **narrative** for judges.
 
-**Load balancing — help the backend (T2):** After deploy exists, take point on **Render** env (`MONGODB_URI`, Twilio, `INTERNAL_API_KEY`, `GEMINI_API_KEY`, etc.), **`curl`** verification of `/health` and `/internal/reminders/fire`, **CORS** for **Vercel** frontend origin(s), and **incident-style** debugging (502, cold start, missing env). You do **not** own Pydantic schemas or core business logic unless T2 delegates a tiny, well-scoped task. You can also help **T1** with **`VITE_API_URL`** (must be the **Render** API base URL) and Vercel build settings. Full table: **Load balancing** in [`../MASTER_PLAN.md`](../MASTER_PLAN.md).
+**Load balancing — help the backend (T2):** After deploy exists, take point on **Railway** env (`MONGODB_URI`, Twilio, `INTERNAL_API_KEY`, `GEMINI_API_KEY`, etc.), **`curl`** verification of `/health` and `/internal/reminders/fire`, **CORS** for **Vercel** frontend origin(s), and **incident-style** debugging (502, cold start, missing env). You do **not** own Pydantic schemas or core business logic unless T2 delegates a tiny, well-scoped task. You can also help **T1** with **`VITE_API_URL`** (must be the **Railway** API base URL) and Vercel build settings. Full table: **Load balancing** in [`../MASTER_PLAN.md`](../MASTER_PLAN.md).
 
 ## Fetch stack: how ASI:One, uAgents, and Agentverse fit **our** app
 
@@ -18,10 +18,10 @@ Read the full picture in [`../MASTER_PLAN.md`](../MASTER_PLAN.md) — sections *
 
 ## Your mission
 
-- **MongoDB Atlas**: cluster + connection string in `MONGODB_URI` (local `.env` + **Render** environment dashboard). **Naming:** T2 persists **`plans`** / **`sessions`** collections (not a separate **`tasks`** collection for MVP) — see [`T2_BACKEND.md` § Mongo naming](T2_BACKEND.md#mongo-naming-mvp--plans-not-tasks).
-- **Render (backend)**: deploy **`backend/`** as a **Web Service** (uvicorn). Set start command (e.g. `uvicorn app.main:app --host 0.0.0.0 --port $PORT` or platform default). Public **HTTPS** URL is what **Twilio**, **Fetch**, and **`VITE_API_URL`** use.
-- **Vercel (frontend)**: deploy **`frontend/`** static build; set **`VITE_API_URL`** in Vercel env to the **Render** API origin (no trailing slash path quirks — match how `fetch` calls the API).
-- **CORS**: T2’s `CORS_ORIGINS` on Render must include your **Vercel** production URL (and **preview** URLs if you test PR deploys).
+- **MongoDB Atlas**: cluster + connection string in `MONGODB_URI` (local `.env` + **Railway** environment variables). **Naming:** T2 persists **`plans`** / **`sessions`** collections (not a separate **`tasks`** collection for MVP) — see [`T2_BACKEND.md` § Mongo naming](T2_BACKEND.md#mongo-naming-mvp--plans-not-tasks).
+- **Railway (backend)**: deploy **`backend/`** as a **Web Service** (uvicorn). Set start command (e.g. `uvicorn app.main:app --host 0.0.0.0 --port $PORT` or platform default). Public **HTTPS** URL is what **Twilio**, **Fetch**, and **`VITE_API_URL`** use.
+- **Vercel (frontend)**: deploy **`frontend/`** static build; set **`VITE_API_URL`** in Vercel env to the **Railway** API origin (no trailing slash path quirks — match how `fetch` calls the API).
+- **CORS**: T2’s `CORS_ORIGINS` on Railway must include your **Vercel** production URL (and **preview** URLs if you test PR deploys).
 - **Fetch.ai (mandatory)**:
   - Build a **uAgent** (or equivalent per sponsor workshop) that **POST**s to `POST /internal/reminders/fire` with `X-Internal-Key` and JSON body — include **`agent_context`** when you want the **Level B** story (coordinate field names with **T2** / OpenAPI).
   - **Publish** the agent on **Agentverse** for the sponsor demo.
@@ -31,7 +31,7 @@ Read the full picture in [`../MASTER_PLAN.md`](../MASTER_PLAN.md) — sections *
 
 - Root [`README.md`](../../README.md) — keep env table accurate.
 - `backend/.env.example` — document every variable; no real values.
-- Deployment notes: add `docs/DEPLOY.md` if helpful (optional) — Render `render.yaml` / build & start commands, Vercel root directory + env.
+- Deployment notes: add `docs/DEPLOY.md` if helpful (optional) — Railway build & start commands, Vercel root directory + env.
 
 ## Fetch vs Gemini (talk track)
 
@@ -42,13 +42,13 @@ Read the full picture in [`../MASTER_PLAN.md`](../MASTER_PLAN.md) — sections *
 
 ## Testing
 
-- **Integration**: from **Render** URL, `curl` the internal endpoint with the secret; try **with and without** `agent_context` (see master plan JSON).
+- **Integration**: from **Railway** URL, `curl` the internal endpoint with the secret; try **with and without** `agent_context` (see master plan JSON).
 - **End-to-end**: uAgent fires → backend → Twilio sandbox message; Mongo shows updated **next reminder** if T2 implemented persistence.
 
 ## Checklist
 
 - [ ] `INTERNAL_API_KEY` rotated if exposed; never committed.
-- [ ] CORS on Render updated for **Vercel** origin(s).
+- [ ] CORS on Railway updated for **Vercel** origin(s).
 - [ ] Crisis disclaimer appears in web + WhatsApp copy.
 - [ ] Agent **published** on Agentverse for judging.
 - [ ] Callback uses **`agent_context`** at least once in demo if **Level B** is live.

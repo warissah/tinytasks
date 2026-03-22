@@ -2,7 +2,7 @@
 
 You own everything the **browser** sees. The API contract is defined in [`../MASTER_PLAN.md`](../MASTER_PLAN.md); backend implements it under `backend/app/schemas/`.
 
-**Load balancing:** **T3** can help you with extra UI (e.g. a simple **“Stuck”** box calling `POST /nudge`), loading/error copy, or a second pass on state. See **Load balancing** in [`../MASTER_PLAN.md`](../MASTER_PLAN.md). **T4** can help with **production `VITE_API_URL`** (points at **Render** backend URL), **Vercel** deploy, build/preview, and smoke tests.
+**Load balancing:** **T3** can help you with extra UI (e.g. a simple **“Stuck”** box calling `POST /nudge`), loading/error copy, or a second pass on state. See **Load balancing** in [`../MASTER_PLAN.md`](../MASTER_PLAN.md). **T4** can help with **production `VITE_API_URL`** (points at **Railway** backend URL), **Vercel** deploy, build/preview, and smoke tests.
 
 ## Your mission
 
@@ -10,6 +10,8 @@ You own everything the **browser** sees. The API contract is defined in [`../MAS
 - **Plan** screen: render `tiny_first_step`, `steps[]`, `implementation_intention`, `safety_note`.
 - **Session** screen: start/end session → `POST /session/start`, `POST /session/end` (wire when backend persists).
 - Loading, empty, and error states (don’t block on “pretty” — block on **clear**).
+
+**Stretch (optional):** A **chat** UI calling **`POST /chat/message`** and **`POST /chat/finalize`** (OpenAPI `/docs`) if T2 has it enabled. **Skipping chat is OK** — judges still see the form → plan path. Coordinate with T2; don’t let chat block the MVP checklist below.
 
 ## Where to work
 

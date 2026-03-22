@@ -7,12 +7,12 @@ from fastapi.responses import Response
 from twilio.request_validator import RequestValidator
 
 from app.config import get_settings
+from app.services.command_parser import parse_command
 from app.services.twilio_service import (
     build_twiml_message,
     get_or_create_user_id_from_phone,
-    normalize_command,
 )
-from app.services.whatsapp_logic import get_whatsapp_reply
+from app.services.whatsapp_logic import get_whatsapp_reply_async
 
 router = APIRouter(tags=["twilio"])
 logger = logging.getLogger(__name__)
@@ -61,17 +61,19 @@ async def twilio_webhook(request: Request):
         logger.warning("invalid twilio signature")
         raise HTTPException(status_code=403, detail="Invalid signature")
 
-    From = form_data.get("From", "")
-    Body = form_data.get("Body", "")
+    from_number = form_data.get("From", "")
+    body = form_data.get("Body", "")
 
-    logger.info("twilio inbound from=%s body_len=%s", From, len(Body or ""))
+    logger.info("twilio inbound from=%s body_len=%s", from_number, len(body or ""))
+
+    user_id = get_or_create_user_id_from_phone(from_number)
+    command = parse_command(body)
+    db = getattr(request.app.state, "mongo_db", None)
 
     try:
-        user_id = get_or_create_user_id_from_phone(From)
-        command = normalize_command(Body)
-        reply = get_whatsapp_reply(user_id=user_id, command=command, raw_body=Body)
+        reply = await get_whatsapp_reply_async(db, user_id, command, body)
     except Exception:
-        logger.exception("error processing twilio webhook from=%s", From)
+        logger.exception("error processing twilio webhook from=%s", from_number)
         reply = "Sorry, something went wrong. Please try again later."
 
     twiml = build_twiml_message(reply)
