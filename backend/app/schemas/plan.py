@@ -8,6 +8,8 @@ class PlanRequest(BaseModel):
     horizon: Literal["today", "week", "long"] = "today"
     available_minutes: int = Field(60, ge=5, le=24 * 60)
     energy: Literal["low", "medium", "high"] = "medium"
+    # Optional E.164 (same string Twilio uses after stripping whatsapp:). Links web plan to WhatsApp STUCK/nudge.
+    phone: str | None = None
 
 
 class SuggestedWindow(BaseModel):

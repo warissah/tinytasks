@@ -83,6 +83,19 @@ async def save_thread(db: AsyncIOMotorDatabase | None, doc: dict[str, Any]) -> N
         await _mem_put(doc)
 
 
+async def get_active_plan_id_for_thread(
+    db: AsyncIOMotorDatabase | None, thread_id: str
+) -> str | None:
+    """Returns linked plan_id for this thread, if finalize (or equivalent) set it."""
+    doc = await get_thread(db, thread_id)
+    if doc is None:
+        return None
+    aid = doc.get("active_plan_id")
+    if isinstance(aid, str) and aid.strip():
+        return aid.strip()
+    return None
+
+
 async def set_active_plan_id(
     db: AsyncIOMotorDatabase | None, thread_id: str, plan_id: str
 ) -> None:

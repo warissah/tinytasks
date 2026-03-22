@@ -9,13 +9,21 @@ from app.constants import PLANS_COLLECTION
 from app.schemas.plan import PlanResponse
 
 
-async def insert_plan(db: AsyncIOMotorDatabase, goal: str, plan: PlanResponse) -> None:
-    doc = {
+async def insert_plan(
+    db: AsyncIOMotorDatabase,
+    goal: str,
+    plan: PlanResponse,
+    *,
+    user_phone: str | None = None,
+) -> None:
+    doc: dict[str, Any] = {
         "plan_id": plan.plan_id,
         "goal": goal,
         "plan": plan.model_dump(mode="json"),
         "created_at": datetime.now(UTC),
     }
+    if user_phone and str(user_phone).strip():
+        doc["user_phone"] = str(user_phone).strip()
     await db[PLANS_COLLECTION].insert_one(doc)
 
 
@@ -23,6 +31,23 @@ async def get_plan_by_plan_id(
     db: AsyncIOMotorDatabase, plan_id: str
 ) -> dict[str, Any] | None:
     return await db[PLANS_COLLECTION].find_one({"plan_id": plan_id})
+
+
+async def find_latest_plan_id_for_phone(
+    db: AsyncIOMotorDatabase, phone: str
+) -> str | None:
+    """Latest persisted plan for this phone (e.g. web POST /plan with phone set)."""
+    phone = (phone or "").strip()
+    if not phone:
+        return None
+    doc = await db[PLANS_COLLECTION].find_one(
+        {"user_phone": phone},
+        sort=[("created_at", -1)],
+    )
+    if doc is None:
+        return None
+    pid = doc.get("plan_id")
+    return str(pid).strip() if pid else None
 
 
 async def update_plan_fields(

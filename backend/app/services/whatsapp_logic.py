@@ -5,6 +5,8 @@ import logging
 from fastapi import HTTPException
 
 from app.config import get_settings
+from app.db.chat_threads import get_active_plan_id_for_thread
+from app.db.plans import find_latest_plan_id_for_phone
 from app.schemas.nudge import NudgeRequest
 from app.schemas.plan import PlanRequest
 from app.services.chat_pipeline import run_chat_turn, run_finalize, whatsapp_thread_id_for_user
@@ -16,8 +18,24 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 logger = logging.getLogger(__name__)
 
-# Until phone→task lives in Mongo, Twilio sandbox uses this task id for /nudge-style replies.
+# Fallback when Mongo is off or no plan is linked (local / sandbox).
 HACKATHON_DEMO_TASK_ID = "hackathon-demo"
+
+
+async def resolve_nudge_task_id_for_whatsapp(
+    db: AsyncIOMotorDatabase | None, user_id: str
+) -> str | None:
+    """
+    Prefer chat thread's active_plan_id (finalize on WhatsApp), else latest web plan
+    for this phone (POST /plan with matching phone field).
+    """
+    wa_tid = whatsapp_thread_id_for_user(user_id)
+    linked = await get_active_plan_id_for_thread(db, wa_tid)
+    if linked:
+        return linked
+    if db is None:
+        return None
+    return await find_latest_plan_id_for_phone(db, user_id)
 
 
 def _has_gemini() -> bool:
@@ -136,21 +154,41 @@ def _build_start_reply(raw_body: str) -> str:
     return "Start here: do the smallest possible first step."
 
 
-def _build_stuck_reply(raw_body: str) -> str:
+def _build_stuck_reply_with_task_id(task_id: str, raw_body: str) -> str:
     context = (raw_body or "").strip() or "WhatsApp stuck"
     if _has_gemini():
         try:
-            out = generate_nudge(
-                NudgeRequest(
-                    task_id=HACKATHON_DEMO_TASK_ID,
-                    context=context,
-                )
-            )
+            out = generate_nudge(NudgeRequest(task_id=task_id, context=context))
             return f"{out.message}\n\n2 min try: {out.two_minute_action}"
         except Exception:
             logger.exception("Gemini nudge failed in WhatsApp flow")
 
     return "Got you. Try this: write just ONE bullet point. Only 2 minutes."
+
+
+def _build_stuck_reply(raw_body: str) -> str:
+    """Sync fallback (no DB): demo task id."""
+    return _build_stuck_reply_with_task_id(HACKATHON_DEMO_TASK_ID, raw_body)
+
+
+_NO_PLAN_MSG = (
+    "No plan is linked to this number yet. "
+    "In the app, create a plan and add your phone number, or chat here and reply finalize when ready. "
+    "Then try STUCK again."
+)
+
+
+async def _build_stuck_reply_async(
+    db: AsyncIOMotorDatabase | None,
+    user_id: str,
+    raw_body: str,
+) -> str:
+    task_id = await resolve_nudge_task_id_for_whatsapp(db, user_id)
+    if task_id is None and db is not None:
+        return _NO_PLAN_MSG
+    if task_id is None:
+        task_id = HACKATHON_DEMO_TASK_ID
+    return _build_stuck_reply_with_task_id(task_id, raw_body)
 
 
 def get_whatsapp_reply(user_id: str, command: str, raw_body: str = "") -> str:
@@ -202,6 +240,9 @@ async def get_whatsapp_reply_async(
                 f"Plan ready.\n{plan.summary}\n\nFirst step: {first}\n\n"
                 f"(Reply STUCK anytime. Not clinical — crisis: 988.)"
             )[:1500]
+
+        if command == "stuck":
+            return await _build_stuck_reply_async(db, user_id, raw_body)
 
         if command == "unknown":
             out = await run_chat_turn(
