@@ -15,9 +15,11 @@
 |---------|------------|
 | **Web** | Goal input, AI breakdown (tiny first step + 2–4 subtasks), optional energy/time fields, simple “session” start/end with reflection |
 | **WhatsApp** | `start`, `stuck`, `done` (and maybe `plan`) → same backend logic as web; persist last task context per user |
-| **Data** | MongoDB Atlas: users (phone/web id), tasks, sessions, **pending reminder jobs** (when to nudge, channel, task id), WhatsApp thread state |
+| **Data** | MongoDB Atlas: **`plans`** (saved **`PlanResponse`** + metadata), **`sessions`**, users / WhatsApp thread state, **pending reminder jobs** (when to nudge, channel). **Do not** add a separate **`tasks`** collection for MVP — “task” in conversation means the **plan** row keyed by **`plan_id`**. |
 | **Deploy** | **Render**: FastAPI backend (HTTPS). **Vercel**: Vite/React static frontend. `VITE_API_URL` → Render URL; **CORS** includes Vercel prod (and preview if used). |
 | **Fetch.ai (required)** | **uAgent** published on **Agentverse** that fires on a schedule/event and **POST**s to your API (with optional **`agent_context`**) — proactive nudge + **strong story** for judges |
+
+**API vs Mongo naming:** Request bodies use **`task_id`** (e.g. `/session`, `/nudge`) — for MVP **`task_id` === `plan_id`** from **`POST /plan`**. T1 keeps rendering **`PlanResponse`** as today; renaming to **`plan_id`** everywhere is optional and needs T1 + OpenAPI agreement.
 
 ## Fetch ecosystem (ASI:One, uAgents, Agentverse) vs our stack
 
@@ -129,10 +131,12 @@ flowchart LR
 
 - **Request**: `{ "task_id": "...", "context": "stuck on formatting", "last_step_id": "1" }`
 - **Response**: `{ "nudge_type": "reentry", "message": "...", "two_minute_action": "..." }`
+- **MVP:** `task_id` is the same value as **`plan_id`** from `POST /plan` (no separate tasks table).
 
 ### `POST /session/start` and `POST /session/end`
 
 - Minimal: `task_id`, `started_at`, `ended_at`, `reflection` (`done` | `blocked` | `partial`).
+- **MVP:** `task_id` === **`plan_id`**.
 
 ### `POST /internal/reminders/fire` (Fetch uAgent → FastAPI; **not** public)
 
@@ -168,7 +172,7 @@ flowchart LR
 | `agent_context.push_back_start_minutes` | Backend persists **next nudge** at least this many minutes later (snooze / recovery pacing). |
 | `agent_context.replan_intensity` | `same` → status check-in only; `smaller_steps` / `lighter` → backend may call **Gemini** to **subdivide** or soften the plan, then save new `plan_id` / steps in Mongo. |
 
-**T2 implementation** (when ready): load Mongo task, merge WhatsApp-reported state, apply `agent_context`, then **Gemini** + **Twilio** outbound.
+**T2 implementation** (when ready): load **plan** doc from Mongo (`plans` by `plan_id` / `task_id`), merge WhatsApp-reported state, apply `agent_context`, then **Gemini** + **Twilio** outbound.
 
 **Prompt rule**: Ask Gemini to output **only JSON** matching the Pydantic schema; FastAPI validates; on failure, one retry with “fix JSON only”.
 

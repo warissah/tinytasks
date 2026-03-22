@@ -18,7 +18,7 @@ Read the full picture in [`../MASTER_PLAN.md`](../MASTER_PLAN.md) — sections *
 
 ## Your mission
 
-- **MongoDB Atlas**: cluster + connection string in `MONGODB_URI` (local `.env` + **Render** environment dashboard).
+- **MongoDB Atlas**: cluster + connection string in `MONGODB_URI` (local `.env` + **Render** environment dashboard). **Naming:** T2 persists **`plans`** / **`sessions`** collections (not a separate **`tasks`** collection for MVP) — see [`T2_BACKEND.md` § Mongo naming](T2_BACKEND.md#mongo-naming-mvp--plans-not-tasks).
 - **Render (backend)**: deploy **`backend/`** as a **Web Service** (uvicorn). Set start command (e.g. `uvicorn app.main:app --host 0.0.0.0 --port $PORT` or platform default). Public **HTTPS** URL is what **Twilio**, **Fetch**, and **`VITE_API_URL`** use.
 - **Vercel (frontend)**: deploy **`frontend/`** static build; set **`VITE_API_URL`** in Vercel env to the **Render** API origin (no trailing slash path quirks — match how `fetch` calls the API).
 - **CORS**: T2’s `CORS_ORIGINS` on Render must include your **Vercel** production URL (and **preview** URLs if you test PR deploys).
