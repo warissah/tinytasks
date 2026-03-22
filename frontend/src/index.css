@@ -4,5 +4,5 @@
 
 /* optional global styles */
 body {
-  font-family: sans-serif;
+  @apply bg-gray-50 text-gray-800 font-sans;
 }
