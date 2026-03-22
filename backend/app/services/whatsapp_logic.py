@@ -271,14 +271,6 @@ async def get_whatsapp_reply_async(
             plan = _build_plan_from_text(raw_body)
             tiny = _extract_tiny_first_step(plan)
             reply = f"Start here: {tiny}" if tiny else "Start here: do the smallest possible first step."
-            if db is not None and hasattr(plan, "model_dump"):
-                goal_text = (raw_body or "").strip()
-                if goal_text.lower().startswith("plan"):
-                    goal_text = goal_text[4:].strip(" :.-")
-                await insert_demo_event(db, "new_plan", {
-                    "plan": plan.model_dump(mode="json"),
-                    "goal": goal_text or plan.summary,
-                })
             return reply
 
         if command == "stuck":
