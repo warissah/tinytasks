@@ -45,6 +45,10 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    @app.get("/")
+    def root() -> dict[str, str]:
+        return {"status": "ok", "message": "Backend is running"}
+
     app.include_router(health.router)
     app.include_router(plan.router, prefix="/plan", tags=["plan"])
     app.include_router(nudge.router, prefix="/nudge", tags=["nudge"])
