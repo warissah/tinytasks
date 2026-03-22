@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import "./dashboard.css";
+import { postPlan } from "../api/client";
 
 interface Subtask {
   id: string;
@@ -84,15 +85,12 @@ const [messages, setMessages] = useState<{ sender: "user" | "ai"; text: string }
     if (!newTask.trim()) return;
 
     try {
-      const res = await fetch("/plan", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ task: newTask }),
+      const data = await postPlan({
+        goal: newTask,
+        horizon: "today",
+        available_minutes: 30,
+        energy: "medium",
       });
-
-      const data = await res.json();
 
       const subtasks: Subtask[] = [
         {
@@ -101,7 +99,7 @@ const [messages, setMessages] = useState<{ sender: "user" | "ai"; text: string }
           done: false,
           estimated_minutes: data.tiny_first_step.estimated_minutes,
         },
-        ...data.steps.map((step: any) => ({
+        ...data.steps.map((step) => ({
           id: step.id,
           text: step.title,
           done: false,

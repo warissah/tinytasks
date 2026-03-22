@@ -10,6 +10,12 @@ COLLECTION = "demo_events"
 
 
 async def insert_demo_event(db: AsyncIOMotorDatabase, event_type: str, data: dict[str, Any]) -> None:
+    # Deduplicate: skip if same event_type was inserted in the last 30 seconds (guards against Twilio retries)
+    from datetime import timedelta
+    cutoff = datetime.now(UTC) - timedelta(seconds=30)
+    existing = await db[COLLECTION].find_one({"type": event_type, "timestamp": {"$gt": cutoff}})
+    if existing:
+        return
     await db[COLLECTION].insert_one({
         "type": event_type,
         "data": data,
