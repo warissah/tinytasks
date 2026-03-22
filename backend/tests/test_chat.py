@@ -48,3 +48,8 @@ def test_parse_finalize_keywords() -> None:
     assert parse_command("yes") == "finalize"
     assert parse_command("ok") == "finalize"
     assert parse_command("ok cool") == "unknown"
+    assert parse_command("starting my essay") == "unknown"
+    assert parse_command("planning tomorrow") == "unknown"
+    assert parse_command("Start here") == "start"
+    assert parse_command("plan: write intro") == "plan"
+    assert parse_command("I'm stuck") == "stuck"

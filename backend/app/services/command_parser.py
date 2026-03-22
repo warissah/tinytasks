@@ -1,3 +1,5 @@
+import re
+
 _FINALIZE = frozenset(
     {
         "build",
@@ -12,18 +14,21 @@ _FINALIZE = frozenset(
 
 
 def parse_command(body: str) -> str:
-    text = (body or "").strip().lower().rstrip(".!?")
+    text = (body or "").strip()
+    if not text:
+        return "unknown"
+    lowered = text.lower().rstrip(".!?")
     # Whole-message triggers only so we do not misfire on "yesterday" or "ok cool".
-    if text in _FINALIZE:
+    if lowered in _FINALIZE:
         return "finalize"
-    text_loose = (body or "").strip().lower()
-    if "start" in text_loose:
+    # Leading token for start/plan; word boundaries for stuck/done (avoid starting/planning → plan).
+    if re.search(r"(?i)^\s*start\b", text):
         return "start"
-    if "stuck" in text_loose:
-        return "stuck"
-    if "done" in text_loose:
-        return "done"
-    if "plan" in text:  
+    if re.search(r"(?i)^\s*plan\b", text):
         return "plan"
+    if re.search(r"(?i)\bstuck\b", text):
+        return "stuck"
+    if re.search(r"(?i)\bdone\b", text):
+        return "done"
 
     return "unknown"
