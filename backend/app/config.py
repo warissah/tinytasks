@@ -42,4 +42,5 @@ def get_settings() -> Settings:
 
 
 def cors_origin_list() -> list[str]:
-    return [o.strip() for o in get_settings().cors_origins.split(",") if o.strip()]
+    raw = getattr(get_settings(), "cors_origins", None) or ""
+    return [o.strip() for o in raw.split(",") if o.strip()]

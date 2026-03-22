@@ -60,10 +60,17 @@ async def twilio_webhook(
 ):
     logger.info("twilio inbound from=%s body_len=%s", From, len(Body or ""))
 
-    user_id = get_or_create_user_id_from_phone(From)
-    command = normalize_command(Body)
+    form_data = {"From": From, "Body": Body}
+    if not validate_twilio_signature(request, form_data):
+        raise HTTPException(status_code=403, detail="Invalid signature")
 
-    reply = get_whatsapp_reply(user_id=user_id, command=command, raw_body=Body)
+    try:
+        user_id = get_or_create_user_id_from_phone(From)
+        command = normalize_command(Body)
+        reply = get_whatsapp_reply(user_id=user_id, command=command, raw_body=Body)
+    except Exception:
+        logger.exception("error processing twilio webhook from=%s", From)
+        reply = "Sorry, something went wrong. Please try again later."
 
     twiml = build_twiml_message(reply)
     return Response(content=twiml, media_type="application/xml")
