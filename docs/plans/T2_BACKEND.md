@@ -9,7 +9,7 @@ You own **API correctness**, **JSON schemas**, and **calling Gemini** with the o
 - Replace **stub** `POST /plan` with real Gemini output that validates against Pydantic models.
 - Implement `POST /nudge`, session routes, Mongo persistence.
 - Secure `POST /internal/reminders/fire` with `X-Internal-Key` (see `backend/app/config.py`).
-- **Strong integration (Level B):** When the Fetch **uAgent** calls `/internal/reminders/fire`, accept optional **`agent_context`** (`energy_hint`, `push_back_start_minutes`, `replan_intensity`). Load **plan** (and user/thread state) from **Mongo** (`plans` collection; `task_id` in payloads = `plan_id`), merge with last **WhatsApp** state, then: update **next nudge time**, call **Gemini** to **subdivide or soften** the plan when `replan_intensity` is `smaller_steps` / `lighter`, send outbound line via **Twilio**. See [`../MASTER_PLAN.md`](../MASTER_PLAN.md) (sections **Fetch ecosystem** and **Strong integration story**).
+- **Strong integration (Level B):** **`POST /internal/reminders/fire`** loads **`plans`** by **`task_id`** (= **`plan_id`**), honors **`next_reminder_at`** snooze, **`agent_context.push_back_start_minutes`**, **`replan_intensity`** (`smaller_steps` / `lighter` via **`gemini_replan`** + stub fallback), then personalized **Twilio** copy. Requires **`MONGODB_URI`** for that path. See [`../MASTER_PLAN.md`](../MASTER_PLAN.md) (sections **Fetch ecosystem** and **Strong integration story**).
 - Keep **one source of truth** for schemas in `backend/app/schemas/` (including `app/schemas/internal.py` for `AgentCallbackContext`).
 
 **Stretch (optional):** **`/chat/message`** + **`/chat/finalize`** — conversational draft of `PlanRequest`, then **same `generate_plan` path** as **`POST /plan`**. **Polish and productization are not required for hackathon success** if the team runs out of time; the **single-shot `/plan`** flow remains the contract everyone must ship.
@@ -38,6 +38,15 @@ You own **API correctness**, **JSON schemas**, and **calling Gemini** with the o
 - **`POST /session/start` | `/end`:** **`sessions`** — start inserts `task_id` / `plan_id` (same string for MVP), `started_at`, `ended_at: null`. End finds the latest open session for that `task_id` and sets `ended_at` and `reflection`. Without **`MONGODB_URI`**, routes still return **`200`** (no-op persistence). If **`MONGODB_URI`** is present but **invalid** (e.g. `mongodb://` with no host, common placeholder mistake), the API **still starts** and logs an error; persistence is disabled until the URI is fixed.
 
 **Production (Railway):** Set **`MONGODB_URI`** on the service. Use a start command that binds **`0.0.0.0`** and **`PORT`** (e.g. `uvicorn app.main:app --host 0.0.0.0 --port $PORT`). Set **`CORS_ORIGINS`** to include your Vercel origin(s).
+
+### POST `/internal/reminders/fire`
+
+- **Mongo required** for the personalized path: **`get_plan_by_plan_id(task_id)`** on **`plans`**. If **`MONGODB_URI`** is unset or no row matches **`task_id`**, the handler returns **`status: skipped`** with an explicit **`detail`** (no generic reminder spam).
+- **Snooze:** plans may include **`next_reminder_at`** (UTC). If the callback arrives before that time, **skip** send.
+- **`agent_context.push_back_start_minutes`:** writes **`next_reminder_at = now + N minutes`** and **skips** this send.
+- **`agent_context.replan_intensity`** (`smaller_steps` | `lighter`): **`replan_existing`** (Gemini + **`stub_replan`** fallback) updates embedded **`plan`** and **`replanned_at`**.
+- **`chat_threads`:** after **`POST /chat/finalize`** saves a plan, **`active_plan_id`** is set on the thread (WhatsApp uses stable **`wa-<user_id>`** thread ids).
+- **Indexes (optional):** unique **`plan_id`** on **`plans`** in Atlas.
 
 ## Gemini (`google-genai`)
 

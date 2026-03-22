@@ -83,6 +83,25 @@ async def save_thread(db: AsyncIOMotorDatabase | None, doc: dict[str, Any]) -> N
         await _mem_put(doc)
 
 
+async def set_active_plan_id(
+    db: AsyncIOMotorDatabase | None, thread_id: str, plan_id: str
+) -> None:
+    """Link a finalized plan to a chat thread (e.g. WhatsApp wa-* id)."""
+    ts = _now()
+    if db is not None:
+        await db[CHAT_THREADS_COLLECTION].update_one(
+            {"thread_id": thread_id},
+            {"$set": {"active_plan_id": plan_id, "updated_at": ts}},
+        )
+        return
+    doc = await _mem_get(thread_id)
+    if doc is None:
+        return
+    doc["active_plan_id"] = plan_id
+    doc["updated_at"] = ts
+    await _mem_put(doc)
+
+
 def append_message_pair(
     doc: dict[str, Any],
     user_text: str,

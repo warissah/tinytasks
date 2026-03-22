@@ -15,6 +15,7 @@ from app.db.chat_threads import (
     get_thread,
     merge_draft,
     save_thread,
+    set_active_plan_id,
     transcript_for_prompt,
 )
 from app.db.plans import insert_plan
@@ -105,8 +106,9 @@ async def run_finalize(
     if db is not None:
         try:
             await insert_plan(db, request.goal, plan)
+            await set_active_plan_id(db, thread_id, plan.plan_id)
         except Exception:
-            logger.exception("finalize: failed to persist plan")
+            logger.exception("finalize: failed to persist plan or link thread")
 
     return plan
 
