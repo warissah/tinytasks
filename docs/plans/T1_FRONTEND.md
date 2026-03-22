@@ -2,7 +2,7 @@
 
 You own everything the **browser** sees. The API contract is defined in [`../MASTER_PLAN.md`](../MASTER_PLAN.md); backend implements it under `backend/app/schemas/`.
 
-**Load balancing:** **T3** can help you with extra UI (e.g. a simple **“Stuck”** box calling `POST /nudge`), loading/error copy, or a second pass on state. See **Load balancing** in [`../MASTER_PLAN.md`](../MASTER_PLAN.md). **T4** can help with **production `VITE_API_URL`**, build/preview, and deploy smoke tests.
+**Load balancing:** **T3** can help you with extra UI (e.g. a simple **“Stuck”** box calling `POST /nudge`), loading/error copy, or a second pass on state. See **Load balancing** in [`../MASTER_PLAN.md`](../MASTER_PLAN.md). **T4** can help with **production `VITE_API_URL`** (points at **Render** backend URL), **Vercel** deploy, build/preview, and smoke tests.
 
 ## Your mission
 

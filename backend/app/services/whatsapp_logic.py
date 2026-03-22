@@ -1,7 +1,16 @@
+import logging
 from typing import Any
 
+from app.config import get_settings
+from app.schemas.nudge import NudgeRequest
+from app.services.gemini_nudge import generate_nudge
 from app.services.mock_logic import handle_done, handle_stuck, handle_unknown
 from app.services.mock_plan import build_stub_plan
+
+logger = logging.getLogger(__name__)
+
+# Until phone→task lives in Mongo, Twilio sandbox uses this task id for /nudge-style replies.
+HACKATHON_DEMO_TASK_ID = "hackathon-demo"
 
 
 def _extract_first_step(plan: Any) -> str | None:
@@ -63,7 +72,7 @@ def _extract_first_step(plan: Any) -> str | None:
     return None
 
 
-def get_whatsapp_reply(user_id: str, command: str) -> str:
+def get_whatsapp_reply(user_id: str, command: str, raw_body: str = "") -> str:
     try:
         if command == "start":
             plan = build_stub_plan("Help me get started on my task.")
@@ -75,6 +84,18 @@ def get_whatsapp_reply(user_id: str, command: str) -> str:
             return "Start here: do the smallest possible first step."
 
         if command == "stuck":
+            settings = get_settings()
+            if settings.gemini_api_key:
+                try:
+                    out = generate_nudge(
+                        NudgeRequest(
+                            task_id=HACKATHON_DEMO_TASK_ID,
+                            context=(raw_body or "").strip() or "WhatsApp stuck",
+                        )
+                    )
+                    return f"{out.message}\n\n2 min try: {out.two_minute_action}"
+                except Exception:
+                    logger.exception("Gemini nudge from WhatsApp stuck failed")
             return handle_stuck(user_id)
 
         if command == "done":

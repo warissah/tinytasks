@@ -51,7 +51,7 @@ Open the printed local URL (usually <http://127.0.0.1:5173>). The home page call
 
 | File | Purpose |
 |------|---------|
-| [`backend/.env.example`](backend/.env.example) | Server + internal webhook secret + future Twilio/Mongo/Gemini/Fetch |
+| [`backend/.env.example`](backend/.env.example) | Server + internal webhook secret + Mongo + Gemini (`google-genai`) + Twilio/Fetch |
 | [`frontend/.env.example`](frontend/.env.example) | `VITE_API_URL` for browser → FastAPI |
 
 ## Testing
@@ -101,6 +101,8 @@ pytest
 
 For WhatsApp/Fetch/Mongo: add keys to `backend/.env`, then repeat and use Twilio sandbox + Fetch callback URL against your deployed HTTPS URL.
 
+**Production deploy (team default):** **Render** web service for `backend/` (public HTTPS API). **Vercel** for `frontend/` static build; set **`VITE_API_URL`** in Vercel to the Render API origin. Add the Vercel URL(s) to backend **`CORS_ORIGINS`** on Render. Details: [`docs/MASTER_PLAN.md`](docs/MASTER_PLAN.md) and [`docs/plans/T4_DEVOPS_FETCH.md`](docs/plans/T4_DEVOPS_FETCH.md).
+
 ## Repo layout
 
 ```
@@ -112,7 +114,7 @@ docs/             Master plan + per-role plans
 ## Integration contract (frozen for the hackathon)
 
 - Browser → `VITE_API_URL` (see `frontend/.env.example`).
-- FastAPI enables CORS for local dev origins; tighten for production.
+- FastAPI enables CORS for local dev origins; in production (Render) include your **Vercel** site origin(s).
 - `POST /plan` returns the shared JSON shape (stub until Gemini is wired); see `docs/MASTER_PLAN.md`.
 
 ## License

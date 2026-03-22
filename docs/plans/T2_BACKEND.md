@@ -1,6 +1,6 @@
 # T2 — Backend (FastAPI + Pydantic)
 
-You own **API correctness**, **JSON schemas**, and **calling Gemini** (via OpenClaw or direct Google SDK). WhatsApp and Fetch call **your** routes — they should not reimplement business logic.
+You own **API correctness**, **JSON schemas**, and **calling Gemini** with the official **`google-genai`** SDK (`GEMINI_API_KEY`). WhatsApp and Fetch call **your** routes — they should not reimplement business logic. **OpenClaw is out of scope** for this team (direct Gemini keeps deploy and debugging simpler).
 
 **Load balancing:** **T4** can take work off your plate for **deploy-only** issues: env vars on the server, `curl` checks for `/internal/reminders/fire`, CORS against the real site URL, and documenting URLs for webhooks. You still own schemas and core route behavior. See **Load balancing** in [`../MASTER_PLAN.md`](../MASTER_PLAN.md).
 
@@ -23,10 +23,21 @@ You own **API correctness**, **JSON schemas**, and **calling Gemini** (via OpenC
 - Copy `backend/.env.example` → `backend/.env`. **Do not commit `.env`.**
 - For local dev, stub routes work **without** Gemini until you add keys.
 
-## Gemini / OpenClaw
+## Gemini (`google-genai`)
 
-- Return **JSON-only** from the model; validate with Pydantic; on failure, one repair retry.
+- Use **`google.genai`** / `Client` with **`GEMINI_API_KEY`** — see [Google Gen AI SDK (Python)](https://googleapis.github.io/python-genai/).
+- Return **JSON-only** from the model; validate with Pydantic; on failure, one repair retry (“fix JSON only”).
 - Log errors without leaking user content to console in production.
+
+### Time constraints (24h) — scope Gemini “sophistication”
+
+Ship the **vertical slice** first; add polish only if the core path works.
+
+1. **Must ship:** One **system prompt + user payload** per feature (`/plan`, `/nudge`, replan inside `/internal/reminders/fire`) that returns **valid JSON** matching existing Pydantic models. Stub fallback when `GEMINI_API_KEY` is missing stays OK for local dev.
+2. **Nice if time:** Separate prompt helpers per `energy` / `replan_intensity`, slightly richer instructions, or a second model name for “lighter” copy — **after** Mongo + one happy-path Gemini call works end-to-end.
+3. **Defer:** Multi-turn coaching, long chat history, many model variants, or anything that needs more than **one request + validation + one retry** per endpoint.
+
+**Rule:** A **reliable** JSON plan + one replan path beats a **clever** prompt that breaks under judge Wi‑Fi.
 
 ## Checklist
 

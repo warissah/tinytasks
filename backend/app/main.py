@@ -1,11 +1,38 @@
+import logging
+import sys
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import cors_origin_list, get_settings
 from app.routers import health, internal_reminders, nudge, plan, session, webhooks_twilio
 
+_GEMINI_LOG_HANDLER_MARKER = "_beachhacks_gemini_stderr"
+
+
+def _configure_app_logging() -> None:
+    """
+    Uvicorn often leaves the root logger without a handler that receives app.* records.
+    Attach a stderr StreamHandler directly to the Gemini module logger so timing INFO always shows.
+    """
+    root = logging.getLogger()
+    if root.level == logging.NOTSET or root.level > logging.INFO:
+        root.setLevel(logging.INFO)
+
+    for name in ("app", "app.services"):
+        logging.getLogger(name).setLevel(logging.INFO)
+
+    # One handler on app.services: child loggers (gemini_plan, gemini_nudge, …) propagate here.
+    services_log = logging.getLogger("app.services")
+    if not any(getattr(h, _GEMINI_LOG_HANDLER_MARKER, False) for h in services_log.handlers):
+        h = logging.StreamHandler(sys.stderr)
+        setattr(h, _GEMINI_LOG_HANDLER_MARKER, True)
+        h.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
+        services_log.addHandler(h)
+
 
 def create_app() -> FastAPI:
+    _configure_app_logging()
     settings = get_settings()
     app = FastAPI(title=settings.app_name, version="0.1.0")
 

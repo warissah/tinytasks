@@ -4,7 +4,7 @@
 
 - **Ship one vertical slice**: user enters a goal on the web → gets a breakdown → can text WhatsApp when stuck → **Fetch.ai-driven proactive nudges** (e.g. post-plan check-in) → sees progress in the app.
 - **Defer everything else**: fancy analytics, multi-user social, full calendar sync, polished mobile apps, complex multi-agent swarms beyond one reminder loop.
-- **AI stack**: OpenClaw (or OpenAI-compatible layer) with **Google Gemini** for **language + JSON plans/nudges**; keep prompts **JSON-shaped** so web + WhatsApp share one contract.
+- **AI stack**: **Google Gemini** via the official **`google-genai`** Python SDK (no OpenClaw gateway for this hackathon — fewer moving parts). **JSON-shaped** prompts/responses so web + WhatsApp share one contract.
 - **Agent stack (mandatory)**: **Fetch.ai** (`uAgents` + **Agentverse**; optional **ASI:One** surface) owns **proactive orchestration** — see [Fetch ecosystem vs our stack](#fetch-ecosystem-asione-uagents-agentverse-vs-our-stack). It does **not** replace Gemini for primary planning copy; it **calls your backend** with optional **structured metadata** so you can **snooze**, **replan**, or soften messages (**strong integration story** — [below](#strong-integration-story-level-b--chosen)).
 - **ElevenLabs**: **out of scope** (ignore).
 - **Safety**: non-clinical disclaimer + crisis redirect text in web + WhatsApp (judges care).
@@ -16,7 +16,7 @@
 | **Web** | Goal input, AI breakdown (tiny first step + 2–4 subtasks), optional energy/time fields, simple “session” start/end with reflection |
 | **WhatsApp** | `start`, `stuck`, `done` (and maybe `plan`) → same backend logic as web; persist last task context per user |
 | **Data** | MongoDB Atlas: users (phone/web id), tasks, sessions, **pending reminder jobs** (when to nudge, channel, task id), WhatsApp thread state |
-| **Deploy** | Vultr: one backend + one frontend (static or SSR) |
+| **Deploy** | **Render**: FastAPI backend (HTTPS). **Vercel**: Vite/React static frontend. `VITE_API_URL` → Render URL; **CORS** includes Vercel prod (and preview if used). |
 | **Fetch.ai (required)** | **uAgent** published on **Agentverse** that fires on a schedule/event and **POST**s to your API (with optional **`agent_context`**) — proactive nudge + **strong story** for judges |
 
 ## Fetch ecosystem (ASI:One, uAgents, Agentverse) vs our stack
@@ -39,7 +39,7 @@ These are **Fetch.ai** concepts from the sponsor stack; they map to our app like
 
 | Layer | Responsibility |
 |--------|----------------|
-| **Gemini (via OpenClaw)** | Natural language + structured JSON: **plan**, **stuck nudge** text, **two-minute re-entry**, and **replan** when backend asks (e.g. smaller steps after burnout) |
+| **Gemini (backend, `google-genai`)** | Natural language + structured JSON: **plan**, **stuck nudge** text, **two-minute re-entry**, and **replan** when backend asks (e.g. smaller steps after burnout) |
 | **Fetch (uAgent + Agentverse)** | **When** to act and **optional structured hints** to the backend: fire **`/internal/reminders/fire`** after e.g. 15m if no `session/end`; published agent proves the sponsor integration |
 
 Do **not** replace Gemini with Fetch for core planning copy in 24h; **do** show **uAgents + Agentverse** in the **demo** as the **proactive agent layer**.
@@ -65,8 +65,7 @@ flowchart LR
   WA[WhatsAppWebhook] --> API
   UAgent[uAgent_Agentverse] -->|"HTTPS plus agent_context"| API
   ASI[ASI_One_optional] -.->|"optional invoke"| UAgent
-  API --> OpenClaw[OpenClawOrCompatibleRouter]
-  OpenClaw --> Gemini[GeminiAPI]
+  API --> Gemini[Gemini_google_genai]
   API --> Mongo[MongoDBAtlas]
   API --> Twilio[TwilioWhatsApp]
 ```
@@ -79,6 +78,7 @@ flowchart LR
 - **Frontend**: **Vite + React** + TypeScript (`VITE_API_URL`).
 - **DB**: MongoDB Atlas + Motor or Beanie (or PyMongo).
 - **WhatsApp**: Twilio webhook (or Meta) hitting FastAPI.
+- **Hosting (MVP)**: **Render** (web service for `backend/`, uvicorn, env vars on dashboard). **Vercel** (static export / `npm run build` for `frontend/`). Twilio + Fetch callbacks target the **Render** URL (HTTPS).
 
 ## API JSON shape (single contract for web + WhatsApp)
 
@@ -178,7 +178,7 @@ Assume **~20–22h effective**. **Sync checkpoints**: start (0h), mid-build (~8h
 
 | Hours | **T1 — Frontend** | **T2 — Backend** | **T3 — WhatsApp** | **T4 — DevOps / Fetch** |
 |--------|-------------------|------------------|-------------------|-------------------------|
-| **0–2** | Scaffold Vite+TS; pages: Goal, Plan, Session | FastAPI skeleton; stub `POST /plan`; stub `POST /internal/reminders/fire` (401 without key) | Twilio sandbox + webhook stub; test outbound once | Mongo Atlas + Vultr; Fetch project + HTTP trigger docs |
+| **0–2** | Scaffold Vite+TS; pages: Goal, Plan, Session | FastAPI skeleton; stub `POST /plan`; stub `POST /internal/reminders/fire` (401 without key) | Twilio sandbox + webhook stub; test outbound once | Mongo Atlas + Render/Vercel accounts; Fetch project + HTTP trigger docs |
 | **2–8** | Real `/plan` UI; render `steps[]`, `tiny_first_step` | Gemini + Pydantic + Mongo; `POST /nudge`; `/internal/reminders/fire` + Twilio outbound | Webhook commands → T2 endpoints | Deploy public HTTPS; first Fetch agent hitting callback |
 | **8–14** | Plan → session UI | Persist sessions + reminder metadata; auth for demo | Full loop: plan → nudge | E2E: Fetch → WhatsApp |
 | **14–18** | Polish + disclaimers | Harden internal route | Templates | Pitch: Gemini = copy, Fetch = proactive |
@@ -193,7 +193,7 @@ Roles are **not** meant to be silos. If **T2 (backend)** or **T1 (frontend)** is
 
 | Who | Default focus | How to offload **backend (T2)** | How to offload **frontend (T1)** |
 |-----|----------------|----------------------------------|-----------------------------------|
-| **T4 — DevOps / Fetch** | Deploy, HTTPS, secrets, Fetch → callback | **Take load off T2:** own production **env wiring** (`MONGODB_URI`, `INTERNAL_API_KEY`, Twilio vars on the server), **smoke-test** `/health` and `/internal/reminders/fire` with `curl`, verify **CORS** against the real frontend origin, document **exact URLs** for Twilio/Fetch. Pair with T2 on **deploy-only bugs** (502, wrong port, missing env). Optionally implement thin glue in `internal_reminders` *only if* T2 assigns a small sub-task (keep **business rules** in T2). | **Help T1:** production **`VITE_API_URL`**, `npm run build` + static hosting checks, “works on school Wi‑Fi” verification, screenshot/recording setup. |
+| **T4 — DevOps / Fetch** | Deploy, HTTPS, secrets, Fetch → callback | **Take load off T2:** own **Render** env wiring (`MONGODB_URI`, `INTERNAL_API_KEY`, Twilio vars, `PORT` if required), **smoke-test** `/health` and `/internal/reminders/fire` with `curl`, verify **CORS** against **Vercel** origin(s), document **exact URLs** (Render API + Vercel app) for Twilio/Fetch. Pair with T2 on **deploy-only bugs** (502, cold start, missing env). Optionally implement thin glue in `internal_reminders` *only if* T2 assigns a small sub-task (keep **business rules** in T2). | **Help T1:** production **`VITE_API_URL`** (Render URL), Vercel project + preview URLs, `npm run build`, “works on school Wi‑Fi” verification, screenshot/recording setup. |
 | **T3 — WhatsApp / Twilio** | Inbound/outbound, sandbox, webhooks | **Pair with T2:** own **Twilio console** + **request signature** validation; T2 owns the FastAPI route and calling shared services. Build **one Twilio helper module** together so T2 does not own all Twilio docs. | **Take load off T1:** if WhatsApp is delayed, add a **minimal in-app “Stuck” panel** (textarea + button) that calls **`POST /nudge`** — same API as WhatsApp. Help with **error/loading copy**, accessibility pass, or second pair of eyes on React state bugs. |
 
 **Rules of thumb**
@@ -219,6 +219,7 @@ Roles are **not** meant to be silos. If **T2 (backend)** or **T1 (frontend)** is
 | ASI:One scope creep | **Optional** demo only; core path = web + WhatsApp + uAgent callback |
 | AI latency | Short prompts, `max_tokens` cap |
 | Scope creep | Lock MVP at hour 2 |
+| Render free tier cold starts | Hit `/health` once before demo; or upgrade / keep service warm; document for judges |
 
 ## Starter repo (this codebase)
 
