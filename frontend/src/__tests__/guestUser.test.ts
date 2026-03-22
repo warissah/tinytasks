@@ -1,11 +1,8 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { clearStoredGuestUser, getStoredGuestUser, storeGuestUser } from "../utils/guestUser";
 
 describe("guestUser storage", () => {
-  beforeEach(() => {
-    window.localStorage.clear();
-  });
 
   it("stores and reads the guest user bundle", () => {
     storeGuestUser({

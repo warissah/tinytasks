@@ -9,12 +9,18 @@ export async function getHealth(): Promise<{ status: string }> {
   return res.json() as Promise<{ status: string }>;
 }
 
+/**
+ * POST /plan body. When Mongo is enabled, the backend persists optional `user_id` and `phone`
+ * on the plan document. Use the same E.164 string as guest signup (`POST /users/guest`) so
+ * WhatsApp STUCK/nudge can resolve the latest web plan via `user_id` or `user_phone`.
+ */
 export type PlanRequest = {
   goal: string;
   horizon: "today" | "week" | "long";
   available_minutes: number;
   energy: "low" | "medium" | "high";
   user_id?: string;
+  /** E.164; stored as user_phone on the plan for phone-based WhatsApp resolution. */
   phone?: string;
 };
 

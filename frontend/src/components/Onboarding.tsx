@@ -40,13 +40,14 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
         phone: finalAnswers.phone,
       });
       storeGuestUser(guestUser);
+      const { user_id, phone } = guestUser;
       const plan = await postPlan({
         goal: finalAnswers.goal,
         horizon: "today",
         available_minutes: TIME_TO_MINUTES[finalAnswers.time] ?? 30,
         energy: finalAnswers.energy as "low" | "medium" | "high",
-        user_id: guestUser.user_id,
-        phone: guestUser.phone,
+        user_id,
+        phone,
       });
       onComplete(plan, finalAnswers.goal, guestUser.email, guestUser.phone);
     } catch (err) {
