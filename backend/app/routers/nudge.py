@@ -16,14 +16,16 @@ def nudge(body: NudgeRequest) -> NudgeResponse:
     settings = get_settings()
     if not settings.gemini_api_key:
         return NudgeResponse(
-            message="Stub nudge: take one tiny 2-minute action. Momentum beats motivation.",
-            two_minute_action="Open the doc and change one line (any line).",
+            nudge_type="reentry",
+            message="You do not need to finish everything right now. Just restart with one tiny step.",
+            two_minute_action="Open the task, spend 2 minutes on the easiest possible next action, then stop if you want.",
         )
     try:
         return gemini_generate_nudge(body)
     except Exception:
         logger.exception("Gemini nudge failed; falling back to stub")
         return NudgeResponse(
-            message="Stub nudge: take one tiny 2-minute action. Momentum beats motivation.",
-            two_minute_action="Open the doc and change one line (any line).",
+            nudge_type="reentry",
+            message="You do not need to finish everything right now. Just restart with one tiny step.",
+            two_minute_action="Open the task, spend 2 minutes on the easiest possible next action, then stop if you want.",
         )

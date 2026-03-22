@@ -2,17 +2,13 @@ from __future__ import annotations
 
 import logging
 
+from app.config import get_settings
 from app.schemas.nudge import NudgeRequest
 from app.schemas.plan import PlanRequest
 from app.services.gemini_nudge import generate_nudge
 from app.services.gemini_plan import generate_plan
 from app.services.mock_logic import handle_done, handle_unknown
 from app.services.mock_plan import build_stub_plan
-
-try:
-    from app.config import get_settings
-except Exception:  # pragma: no cover
-    get_settings = None
 
 logger = logging.getLogger(__name__)
 
@@ -21,11 +17,9 @@ HACKATHON_DEMO_TASK_ID = "hackathon-demo"
 
 
 def _has_gemini() -> bool:
-    if get_settings is None:
-        return False
     try:
         settings = get_settings()
-        return bool(getattr(settings, "gemini_api_key", None))
+        return bool(settings.gemini_api_key)
     except Exception:
         return False
 
