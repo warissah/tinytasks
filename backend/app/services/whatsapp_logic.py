@@ -239,10 +239,9 @@ async def get_whatsapp_reply_async(
             except HTTPException as e:
                 return _http_detail(e)
             if db is not None:
-                goal = (raw_body or "").strip() or plan.summary
                 await insert_demo_event(db, "new_plan", {
                     "plan": plan.model_dump(mode="json"),
-                    "goal": goal,
+                    "goal": plan.summary,
                 })
             first = plan.tiny_first_step.title
             return (
