@@ -1,19 +1,18 @@
 import React, { useState } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import Landing from "./pages/landing"; // <-- lowercase l
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import Person from "./pages/person";
+import Landing from "./pages/landing";
 
 
 const App: React.FC = () => {
-  const [loggedIn, setLoggedIn] = useState(false);
-
+  
   return (
     <BrowserRouter>
       <Routes>
         <Route
           path="/"
-          element={<Landing onLogin={() => setLoggedIn(true)} />}
+          element={<Landing onLogin={() => {}} />}
         />
  <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/person" element={<Person onComplete={() => {}} />} />
