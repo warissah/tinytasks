@@ -16,6 +16,7 @@ except Exception:  # pragma: no cover
 
 logger = logging.getLogger(__name__)
 
+# Until phone→task lives in Mongo, Twilio sandbox uses this task id for /nudge-style replies.
 HACKATHON_DEMO_TASK_ID = "hackathon-demo"
 
 

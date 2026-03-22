@@ -10,7 +10,7 @@ Barebones **FastAPI** + **Vite/React** monorepo: API contract, CORS, and stub ro
 |-----|----------|
 | [`docs/MASTER_PLAN.md`](docs/MASTER_PLAN.md) | Whole team — architecture, JSON API, **ASI:One / uAgents / Agentverse** vs our stack, **Level B** integration, 24h schedule |
 | [`docs/plans/T1_FRONTEND.md`](docs/plans/T1_FRONTEND.md) | Frontend (Vite + React) |
-| [`docs/plans/T2_BACKEND.md`](docs/plans/T2_BACKEND.md) | Backend (FastAPI, Gemini, Mongo) |
+| [`docs/plans/T2_BACKEND.md`](docs/plans/T2_BACKEND.md) | Backend (FastAPI, Gemini, Mongo — **`plans`** collection, `task_id` = `plan_id` for MVP) |
 | [`docs/plans/T3_WHATSAPP.md`](docs/plans/T3_WHATSAPP.md) | WhatsApp / Twilio |
 | [`docs/plans/T4_DEVOPS_FETCH.md`](docs/plans/T4_DEVOPS_FETCH.md) | DevOps, Fetch.ai, deploy, demo |
 

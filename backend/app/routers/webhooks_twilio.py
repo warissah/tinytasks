@@ -58,30 +58,11 @@ async def twilio_webhook(
     From: str = Form(...),
     Body: str = Form(""),
 ):
-    form_data = {"From": From, "Body": Body}
+    logger.info("twilio inbound from=%s body_len=%s", From, len(Body or ""))
 
-    enable_sig_validation = bool(_get_setting("ENABLE_TWILIO_SIGNATURE_VALIDATION", False))
-    if enable_sig_validation and not validate_twilio_signature(request, form_data):
-        raise HTTPException(status_code=403, detail="Invalid Twilio signature")
-
-    phone_number = From.strip()
-    incoming_text = Body.strip()
-    command = normalize_command(incoming_text)
-    user_id = get_or_create_user_id_from_phone(phone_number)
-
-    logger.info(
-        "[Twilio] From=%s | Body=%s | Command=%s | User=%s",
-        phone_number,
-        incoming_text,
-        command,
-        user_id,
-    )
-
-    reply = get_whatsapp_reply(
-        user_id=user_id,
-        command=command,
-        raw_body=incoming_text,
-    )
+    user_id = map_phone_to_user_id(From)
+    command = parse_command(Body)
+    reply = get_whatsapp_reply(user_id=user_id, command=command, raw_body=Body)
 
     twiml = build_twiml_message(reply)
     return Response(content=twiml, media_type="application/xml")

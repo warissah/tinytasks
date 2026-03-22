@@ -6,7 +6,10 @@ from pydantic import BaseModel, Field
 class AgentCallbackContext(BaseModel):
     """
     Optional metadata from the Fetch uAgent (strong integration story).
-    Backend uses this to adjust copy (Gemini), Mongo (snooze / next nudge), or replan intensity.
+
+    TODO: /internal/reminders/fire does not yet persist or branch on these fields — see router module docstring.
+    Intended: energy_hint + Gemini tone; push_back_start_minutes → next_reminder_at in Mongo;
+    replan_intensity smaller_steps|lighter → Gemini replan + persist plan.
     """
 
     energy_hint: Literal["unknown", "low", "medium", "high"] | None = None
@@ -30,5 +33,5 @@ class ReminderFireBody(BaseModel):
 
 
 class ReminderFireResponse(BaseModel):
-    status: Literal["sent", "skipped", "queued_stub"]
+    status: Literal["sent", "skipped", "failed"]
     detail: str

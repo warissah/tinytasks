@@ -9,7 +9,7 @@ You own **API correctness**, **JSON schemas**, and **calling Gemini** with the o
 - Replace **stub** `POST /plan` with real Gemini output that validates against Pydantic models.
 - Implement `POST /nudge`, session routes, Mongo persistence.
 - Secure `POST /internal/reminders/fire` with `X-Internal-Key` (see `backend/app/config.py`).
-- **Strong integration (Level B):** When the Fetch **uAgent** calls `/internal/reminders/fire`, accept optional **`agent_context`** (`energy_hint`, `push_back_start_minutes`, `replan_intensity`). Load task/user from **Mongo**, merge with last **WhatsApp** state, then: update **next nudge time**, call **Gemini** to **subdivide or soften** the plan when `replan_intensity` is `smaller_steps` / `lighter`, send outbound line via **Twilio**. See [`../MASTER_PLAN.md`](../MASTER_PLAN.md) (sections **Fetch ecosystem** and **Strong integration story**).
+- **Strong integration (Level B):** When the Fetch **uAgent** calls `/internal/reminders/fire`, accept optional **`agent_context`** (`energy_hint`, `push_back_start_minutes`, `replan_intensity`). Load **plan** (and user/thread state) from **Mongo** (`plans` collection; `task_id` in payloads = `plan_id`), merge with last **WhatsApp** state, then: update **next nudge time**, call **Gemini** to **subdivide or soften** the plan when `replan_intensity` is `smaller_steps` / `lighter`, send outbound line via **Twilio**. See [`../MASTER_PLAN.md`](../MASTER_PLAN.md) (sections **Fetch ecosystem** and **Strong integration story**).
 - Keep **one source of truth** for schemas in `backend/app/schemas/` (including `app/schemas/internal.py` for `AgentCallbackContext`).
 
 ## Where to work
@@ -22,6 +22,20 @@ You own **API correctness**, **JSON schemas**, and **calling Gemini** with the o
 
 - Copy `backend/.env.example` → `backend/.env`. **Do not commit `.env`.**
 - For local dev, stub routes work **without** Gemini until you add keys.
+
+## Mongo naming (MVP) — **plans**, not **tasks**
+
+- **Collection:** use **`plans`** for persisted coach output (a saved **`PlanResponse`** plus fields like `goal`, `created_at`, optional `user_id` / `phone` later). **Do not** create a separate **`tasks`** collection until the team explicitly defines a *different* entity than “one saved plan.”
+- **`task_id` in JSON:** session and nudge bodies still say **`task_id`** for historical/API stability — **for MVP it is the same string as `plan_id`** returned from **`POST /plan`**. Document that for T1; renaming request fields to **`plan_id`** is optional and requires frontend + OpenAPI sync.
+- **Code:** use [`PLANS_COLLECTION` / `SESSIONS_COLLECTION`](../../backend/app/constants.py) from `app.constants` (or keep in sync) so nobody introduces `db["tasks"]` by habit.
+
+### Persistence (Motor)
+
+- **`app/db/mongo.py`:** FastAPI **lifespan** creates **`AsyncIOMotorClient`** when **`MONGODB_URI`** is set. Optional **`MONGODB_DATABASE`** picks the DB when the URI path has no database name; otherwise the URI path is used, with fallback **`adhd_coach`** if neither is present.
+- **`POST /plan`:** After generating the plan (stub or Gemini), **`insert_one`** into **`plans`** with `plan_id`, `goal`, `plan` (serialized **`PlanResponse`**), `created_at`. Failures are logged; the HTTP response still returns the plan.
+- **`POST /session/start` | `/end`:** **`sessions`** — start inserts `task_id` / `plan_id` (same string for MVP), `started_at`, `ended_at: null`. End finds the latest open session for that `task_id` and sets `ended_at` and `reflection`. Without **`MONGODB_URI`**, routes still return **`200`** (no-op persistence). If **`MONGODB_URI`** is present but **invalid** (e.g. `mongodb://` with no host, common placeholder mistake), the API **still starts** and logs an error; persistence is disabled until the URI is fixed.
+
+**Production (Railway):** Set **`MONGODB_URI`** on the service. Use a start command that binds **`0.0.0.0`** and **`PORT`** (e.g. `uvicorn app.main:app --host 0.0.0.0 --port $PORT`). Set **`CORS_ORIGINS`** to include your Vercel origin(s).
 
 ## Gemini (`google-genai`)
 
