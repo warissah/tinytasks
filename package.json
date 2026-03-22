@@ -1,5 +1,5 @@
 {
-  "name": "focusmate-frontend",
+  "name": "beachhack9.0--team41--project",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -9,7 +9,8 @@
   },
   "dependencies": {
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "react-router-dom": "^6.30.3"
   },
   "devDependencies": {
     "@types/react": "^19.2.14",
