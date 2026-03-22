@@ -224,3 +224,21 @@ async def fire_reminder(
     except Exception as e:
         logger.exception("Twilio send failed for reminder")
         return ReminderFireResponse(status="failed", detail=str(e)[:500])
+
+
+@router.get("/latest-plan")
+async def get_latest_plan(
+    request: Request,
+    x_internal_key: str | None = Header(default=None, alias="X-Internal-Key"),
+) -> dict[str, str | None]:
+    settings = get_settings()
+    if not settings.internal_api_key or x_internal_key != settings.internal_api_key:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid internal key")
+    db = getattr(request.app.state, "mongo_db", None)
+    if db is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="MongoDB not configured")
+    from app.constants import PLANS_COLLECTION
+    doc = await db[PLANS_COLLECTION].find_one(sort=[("created_at", -1)])
+    if not doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No plans found")
+    return {"plan_id": str(doc["plan_id"]), "goal": str(doc.get("goal", ""))}
