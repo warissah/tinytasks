@@ -1,23 +1,54 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Brain, Send, Sparkles, Plus } from "lucide-react";
 import { postNudge } from "../api/client";
 import { useAppContext } from "../context/AppContext";
 
 export default function AIChatInput() {
-  const { planResponse, activeProject, projects, addSubtask } = useAppContext();
+  const { planResponse, activeProject, projects, addSubtask, whatsAppNudge, clearWhatsAppNudge } = useAppContext();
   const [value, setValue] = useState("");
   const [expanded, setExpanded] = useState(false);
   const [thinking, setThinking] = useState(false);
   const [response, setResponse] = useState<{ message: string; two_minute_action: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [subtaskAdded, setSubtaskAdded] = useState(false);
+  const [isWhatsApp, setIsWhatsApp] = useState(false);
 
-  // Find the first incomplete task in the active project to add subtasks to
-  const activeTaskId = (() => {
+  // Auto-display nudge when it arrives from WhatsApp
+  useEffect(() => {
+    if (!whatsAppNudge) return;
+    setResponse({ message: whatsAppNudge.message, two_minute_action: whatsAppNudge.two_minute_action });
+    setExpanded(true);
+    setIsWhatsApp(true);
+    setSubtaskAdded(false);
+  }, [whatsAppNudge]);
+
+  // Find the first incomplete task in the active project
+  const activeTask = (() => {
     if (!activeProject) return null;
     const proj = projects.find(p => p.id === activeProject);
-    return proj?.tasks.find(t => !t.done)?.id ?? null;
+    return proj?.tasks.find(t => !t.done) ?? null;
   })();
+  const activeTaskId = activeTask?.id ?? null;
+
+  // Build a rich context string so Gemini knows what the user is working on
+  const buildContext = (userMessage: string): string => {
+    const parts: string[] = [];
+    if (activeTask) {
+      parts.push(`Task: ${activeTask.title}`);
+      const remaining = activeTask.subtasks?.filter(s => !s.done) ?? [];
+      const done = activeTask.subtasks?.filter(s => s.done) ?? [];
+      if (remaining.length > 0) {
+        parts.push(`Remaining steps: ${remaining.map(s => s.title).join(", ")}`);
+      }
+      if (done.length > 0) {
+        parts.push(`Completed steps: ${done.map(s => s.title).join(", ")}`);
+      }
+      const nextStep = remaining[0];
+      if (nextStep) parts.push(`Next step: ${nextStep.title}${nextStep.description ? ` — ${nextStep.description}` : ""}`);
+    }
+    parts.push(`User says: ${userMessage}`);
+    return parts.join("\n");
+  };
 
   const handleSubmit = async () => {
     if (!value.trim()) return;
@@ -30,7 +61,7 @@ export default function AIChatInput() {
     try {
       const nudge = await postNudge({
         task_id: planResponse?.plan_id ?? activeTaskId ?? "unknown",
-        context: value.trim(),
+        context: buildContext(value.trim()),
       });
       setResponse({ message: nudge.message, two_minute_action: nudge.two_minute_action });
     } catch (err) {
@@ -51,7 +82,9 @@ export default function AIChatInput() {
     setResponse(null);
     setError(null);
     setSubtaskAdded(false);
+    setIsWhatsApp(false);
     setValue("");
+    clearWhatsAppNudge();
   };
 
   return (
@@ -79,6 +112,9 @@ export default function AIChatInput() {
                   <Sparkles className="w-3 h-3 text-white" />
                 </div>
                 <span className="text-sm font-medium text-gray-900">Coach</span>
+                {isWhatsApp && (
+                  <span className="text-[10px] font-medium text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-md ml-1">via WhatsApp</span>
+                )}
               </div>
               <p className="text-sm text-gray-600 mb-3">{response.message}</p>
               {response.two_minute_action && (

@@ -35,7 +35,14 @@ export interface DeletedTask {
   projectColor: string;
 }
 
+export interface WhatsAppNudge {
+  message: string;
+  two_minute_action: string;
+}
+
 export interface AppContextType {
+  whatsAppNudge: WhatsAppNudge | null;
+  clearWhatsAppNudge: () => void;
   projects: Project[];
   activeProject: string | null;
   setActiveProject: (id: string | null) => void;

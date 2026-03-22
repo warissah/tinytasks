@@ -83,6 +83,21 @@ export async function postSessionStart(task_id: string): Promise<void> {
   });
 }
 
+export type DemoEvent =
+  | { id: string; type: "task_complete"; data: Record<string, never>; timestamp: number }
+  | { id: string; type: "nudge"; data: { message: string; two_minute_action: string }; timestamp: number }
+  | { id: string; type: "new_plan"; data: { plan: PlanResponse; goal: string }; timestamp: number };
+
+export async function getDemoEvents(since?: number): Promise<DemoEvent[]> {
+  const url = since != null
+    ? `${baseUrl}/demo/events?since=${since}`
+    : `${baseUrl}/demo/events`;
+  const res = await fetch(url);
+  if (!res.ok) return [];
+  const json = await res.json() as { events: DemoEvent[] };
+  return json.events ?? [];
+}
+
 export async function postSessionEnd(
   task_id: string,
   reflection: "done" | "blocked" | "partial"

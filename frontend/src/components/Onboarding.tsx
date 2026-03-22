@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Brain, Timer, Coffee, Sparkles, ArrowRight } from "lucide-react";
+import { Brain, Timer, Coffee, Sparkles, ArrowRight, Mail, Phone } from "lucide-react";
 import { postPlan } from "../api/client";
 import type { PlanResponse } from "../api/client";
 
 interface OnboardingProps {
-  onComplete: (plan: PlanResponse, goal: string) => void;
+  onComplete: (plan: PlanResponse, goal: string, email: string, phone: string) => void;
 }
 
 const TIME_TO_MINUTES: Record<string, number> = {
@@ -16,7 +16,7 @@ const TIME_TO_MINUTES: Record<string, number> = {
 
 export default function Onboarding({ onComplete }: OnboardingProps) {
   const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState({ goal: "", time: "", energy: "" });
+  const [answers, setAnswers] = useState({ email: "", phone: "", goal: "", time: "", energy: "" });
   const [fadeClass, setFadeClass] = useState("opacity-100 translate-y-0");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +40,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
         available_minutes: TIME_TO_MINUTES[finalAnswers.time] ?? 30,
         energy: finalAnswers.energy as "low" | "medium" | "high",
       });
-      onComplete(plan, finalAnswers.goal);
+      onComplete(plan, finalAnswers.goal, finalAnswers.email, finalAnswers.phone);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
       setLoading(false);
@@ -48,6 +48,22 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   };
 
   const steps = [
+    {
+      icon: <Mail className="w-8 h-8" />,
+      label: "Welcome to TinyTasks.",
+      question: "What's your email address?",
+      placeholder: "you@example.com",
+      field: "email" as const,
+      validate: (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
+    },
+    {
+      icon: <Phone className="w-8 h-8" />,
+      label: "Stay connected.",
+      question: "What's your WhatsApp number?",
+      placeholder: "+1 (555) 000-0000",
+      field: "phone" as const,
+      validate: (v: string) => /^\+?[\d\s\-().]{7,}$/.test(v),
+    },
     {
       icon: <Brain className="w-8 h-8" />,
       label: "Let's get unstuck.",
@@ -128,14 +144,18 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
               <input
                 className="w-full px-5 py-4 rounded-xl border border-gray-200 bg-white text-gray-900 text-lg placeholder-gray-300 focus:outline-none focus:border-gray-400 focus:ring-0 transition-colors"
                 placeholder={current.placeholder}
+                type={current.field === "email" ? "email" : current.field === "phone" ? "tel" : "text"}
                 value={answers[current.field]}
                 onChange={e => setAnswers({ ...answers, [current.field]: e.target.value })}
-                onKeyDown={e => e.key === "Enter" && answers[current.field] && goNext()}
+                onKeyDown={e => {
+                  const valid = "validate" in current ? current.validate!(answers[current.field]) : !!answers[current.field];
+                  if (e.key === "Enter" && valid) goNext();
+                }}
                 autoFocus
               />
               <button
                 onClick={goNext}
-                disabled={!answers[current.field]}
+                disabled={"validate" in current ? !current.validate!(answers[current.field]) : !answers[current.field]}
                 className="mt-6 inline-flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
               >
                 Continue <ArrowRight className="w-4 h-4" />

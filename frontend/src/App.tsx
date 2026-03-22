@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Target, Menu } from "lucide-react";
 import { AppContext } from "./context/AppContext";
 import type { Project, DeletedTask } from "./context/AppContext";
@@ -8,6 +8,7 @@ import Sidebar from "./components/Sidebar";
 import MainCanvas from "./components/MainCanvas";
 import AIChatInput from "./components/AIChatInput";
 import type { PlanResponse } from "./api/client";
+import { getDemoEvents } from "./api/client";
 
 export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(true);
@@ -17,6 +18,54 @@ export default function App() {
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [planResponse, setPlanResponse] = useState<PlanResponse | null>(null);
   const [deletedTasks, setDeletedTasks] = useState<DeletedTask[]>([]);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userPhone, setUserPhone] = useState<string | null>(null);
+  const [whatsAppNudge, setWhatsAppNudge] = useState<{ message: string; two_minute_action: string } | null>(null);
+  const lastEventTs = useRef<number | undefined>(undefined);
+
+  // Poll for WhatsApp-triggered events every 4 seconds
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const events = await getDemoEvents(lastEventTs.current);
+        if (events.length === 0) return;
+        lastEventTs.current = Math.max(...events.map(e => e.timestamp));
+        for (const ev of events) {
+          if (ev.type === "task_complete") {
+            // Mark the first incomplete subtask done across all projects
+            setProjects(prev => {
+              let marked = false;
+              return prev.map(p => ({
+                ...p,
+                tasks: p.tasks.map(t => {
+                  if (marked) return t;
+                  const firstIncomplete = t.subtasks?.find(s => !s.done);
+                  if (!firstIncomplete) return t;
+                  marked = true;
+                  const updated = t.subtasks.map(s => s.id === firstIncomplete.id ? { ...s, done: true } : s);
+                  const allDone = updated.every(s => s.done);
+                  return { ...t, subtasks: updated, done: allDone };
+                }),
+              }));
+            });
+          } else if (ev.type === "nudge") {
+            setWhatsAppNudge({ message: ev.data.message, two_minute_action: ev.data.two_minute_action });
+          } else if (ev.type === "new_plan") {
+            const plan = ev.data.plan as import("./api/client").PlanResponse;
+            const goal = ev.data.goal || plan.summary;
+            const project = planToProject(plan, goal);
+            setProjects(prev => [project, ...prev]);
+            setActiveProject(project.id);
+            setActiveFilter(null);
+          }
+        }
+      } catch {
+        // silently ignore poll errors
+      }
+    };
+    const id = setInterval(poll, 4000);
+    return () => clearInterval(id);
+  }, []);
 
   const planToProject = (plan: PlanResponse, goal: string): Project => {
     const totalMin = plan.tiny_first_step.estimated_minutes +
@@ -40,7 +89,9 @@ export default function App() {
     };
   };
 
-  const handlePlanComplete = (plan: PlanResponse, goal: string) => {
+  const handlePlanComplete = (plan: PlanResponse, goal: string, email: string, phone: string) => {
+    setUserEmail(email);
+    setUserPhone(phone);
     setPlanResponse(plan);
     const planProject = planToProject(plan, goal);
     setProjects(prev => [planProject, ...prev]);
@@ -156,6 +207,7 @@ export default function App() {
     toggleSubtask, addSubtask, removeSubtask, deleteTask, restoreTask, deletedTasks, addProject,
     planResponse, setPlanResponse,
     sessionActive: false, setSessionActive: () => {},
+    whatsAppNudge, clearWhatsAppNudge: () => setWhatsAppNudge(null),
   };
 
   return (
