@@ -33,7 +33,7 @@ You own **API correctness**, **JSON schemas**, and **calling Gemini** with the o
 
 - **`app/db/mongo.py`:** FastAPI **lifespan** creates **`AsyncIOMotorClient`** when **`MONGODB_URI`** is set. Optional **`MONGODB_DATABASE`** picks the DB when the URI path has no database name; otherwise the URI path is used, with fallback **`adhd_coach`** if neither is present.
 - **`POST /plan`:** After generating the plan (stub or Gemini), **`insert_one`** into **`plans`** with `plan_id`, `goal`, `plan` (serialized **`PlanResponse`**), `created_at`. Failures are logged; the HTTP response still returns the plan.
-- **`POST /session/start` | `/end`:** **`sessions`** — start inserts `task_id` / `plan_id` (same string for MVP), `started_at`, `ended_at: null`. End finds the latest open session for that `task_id` and sets `ended_at` and `reflection`. Without **`MONGODB_URI`**, routes still return **`200`** (no-op persistence).
+- **`POST /session/start` | `/end`:** **`sessions`** — start inserts `task_id` / `plan_id` (same string for MVP), `started_at`, `ended_at: null`. End finds the latest open session for that `task_id` and sets `ended_at` and `reflection`. Without **`MONGODB_URI`**, routes still return **`200`** (no-op persistence). If **`MONGODB_URI`** is present but **invalid** (e.g. `mongodb://` with no host, common placeholder mistake), the API **still starts** and logs an error; persistence is disabled until the URI is fixed.
 
 **Production (Railway):** Set **`MONGODB_URI`** on the service. Use a start command that binds **`0.0.0.0`** and **`PORT`** (e.g. `uvicorn app.main:app --host 0.0.0.0 --port $PORT`). Set **`CORS_ORIGINS`** to include your Vercel origin(s).
 

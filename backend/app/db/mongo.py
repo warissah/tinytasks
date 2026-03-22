@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo.errors import ConfigurationError, InvalidURI
 
 from app.config import get_settings
 
@@ -36,7 +37,17 @@ def startup_mongo(app: FastAPI) -> None:
         app.state.mongo_client = None
         app.state.mongo_db = None
         return
-    client = AsyncIOMotorClient(uri)
+    try:
+        client = AsyncIOMotorClient(uri)
+    except (ConfigurationError, InvalidURI, ValueError) as exc:
+        # Bad placeholder URIs (e.g. mongodb:// with no host) crash lifespan and take down Railway/Render.
+        logger.error(
+            "MONGODB_URI is set but invalid; Mongo disabled until fixed: %s",
+            exc,
+        )
+        app.state.mongo_client = None
+        app.state.mongo_db = None
+        return
     app.state.mongo_client = client
     app.state.mongo_db = _resolve_database(client, settings.mongodb_database)
     logger.info("MongoDB client initialized")
