@@ -15,15 +15,15 @@
 |---------|------------|
 | **Web** | Goal input, AI breakdown (tiny first step + 2–4 subtasks), optional energy/time fields, simple “session” start/end with reflection |
 | **WhatsApp** | `start`, `stuck`, `done` (and maybe `plan`) → same backend logic as web; persist last task context per user |
-| **Data** | MongoDB Atlas: **`plans`** (saved **`PlanResponse`** + metadata), **`sessions`**, users / WhatsApp thread state, **pending reminder jobs** (when to nudge, channel). **Do not** add a separate **`tasks`** collection for MVP — “task” in conversation means the **plan** row keyed by **`plan_id`**. |
-| **Deploy** | **Render**: FastAPI backend (HTTPS). **Vercel**: Vite/React static frontend. `VITE_API_URL` → Render URL; **CORS** includes Vercel prod (and preview if used). |
+| **Data** | MongoDB Atlas: **`plans`** (saved **`PlanResponse`** + metadata, including snooze **`next_reminder_at`** when used), **`sessions`**, **`chat_threads`** (conversational draft + WhatsApp-stable thread ids). **Do not** add a separate **`tasks`** collection for MVP — “task” in conversation means the **plan** row keyed by **`plan_id`**. |
+| **Deploy** | **Railway**: FastAPI backend (HTTPS). **Vercel**: Vite/React static frontend. `VITE_API_URL` → Railway URL; **CORS** includes Vercel prod (and preview if used). |
 | **Fetch.ai (required)** | **uAgent** published on **Agentverse** that fires on a schedule/event and **POST**s to your API (with optional **`agent_context`**) — proactive nudge + **strong story** for judges |
 
 **API vs Mongo naming:** Request bodies use **`task_id`** (e.g. `/session`, `/nudge`) — for MVP **`task_id` === `plan_id`** from **`POST /plan`**. T1 keeps rendering **`PlanResponse`** as today; renaming to **`plan_id`** everywhere is optional and needs T1 + OpenAPI agreement.
 
 ### Stretch goal: chat before plan (optional)
 
-The backend may expose **`POST /chat/message`** and **`POST /chat/finalize`** so users can talk (web and/or WhatsApp) to gather intent, then **build a fresh plan** the same way as **`POST /plan`**. **If we do not ship a chat UI or polish the WhatsApp chat path, that is fine** — the hackathon still passes on the **single form → `/plan`** flow and keyword WhatsApp. Treat chat as **bonus depth**, not a blocker.
+The backend **exposes** **`POST /chat/message`** and **`POST /chat/finalize`** (gather intent, then same plan generation as **`POST /plan`**). **Optional for the demo:** a web chat UI and/or polished WhatsApp free-form + finalize UX — the hackathon still passes on the **single form → `/plan`** flow and keyword WhatsApp. Treat chat UI as **bonus depth**, not a blocker.
 
 ## Fetch ecosystem (ASI:One, uAgents, Agentverse) vs our stack
 
@@ -38,7 +38,7 @@ These are **Fetch.ai** concepts from the sponsor stack; they map to our app like
 **Where “intelligence” lives**
 
 - **Gemini (backend)** — plans, nudges, **replanning** smaller steps, compassionate copy (JSON-shaped responses).
-- **User replies** (“I’m burnt out”) — arrive on **Twilio → FastAPI**, not through Fetch. Backend updates **Mongo** (energy, snooze, flags) and may call Gemini to **split or soften** the plan.
+- **User replies** (“I’m burnt out”) — arrive on **Twilio → FastAPI**, not through Fetch. Backend may update **Mongo** (e.g. **`chat_threads`**) and call Gemini on **finalize** / **nudge** paths; full “burnout → next reminder” merge across Fetch + WhatsApp is **incremental** (coordinate with T2).
 - **Fetch uAgent** — decides **when** to check in and can attach **`agent_context`** (e.g. energy hint, push-back minutes) so the backend can **persist schedule changes** and generate the right WhatsApp line.
 
 ## Fetch.ai vs Gemini (division of labor)
@@ -54,12 +54,12 @@ Do **not** replace Gemini with Fetch for core planning copy in 24h; **do** show 
 
 We use more than a dumb timer. The **uAgent** sends a **rich callback** so **FastAPI** can:
 
-1. Load **task + user** from **Mongo** (session completed? snooze? burnout flag from last WhatsApp?).
-2. Use **`agent_context`** (optional) to **push back** the next nudge (`push_back_start_minutes`), request **smaller steps** (`replan_intensity`), or set **energy** hints for Gemini.
-3. Call **Gemini** to produce the **WhatsApp message text** (or a shorter plan) when `replan_intensity` is `smaller_steps` / `lighter`.
-4. Send via **Twilio** outbound and update **`next_reminder_at`** / plan version in Mongo.
+1. Load the **plan** from **`plans`** by **`task_id`** (= **`plan_id`**). **Not yet merged into this route:** session “done?” / last WhatsApp burnout flags — those can be layered later.
+2. Use **`agent_context`** (optional) to **push back** the next nudge (`push_back_start_minutes`), request **smaller steps** (`replan_intensity`), or set **energy** hints (template lines on the outbound message).
+3. When `replan_intensity` is `smaller_steps` / `lighter`, call **Gemini** to **replan** the stored **`PlanResponse`** (with stub fallback); build **WhatsApp copy** from the **saved plan fields** (summary, tiny first step, first step title) — not a separate LLM pass for the reminder sentence.
+4. Send via **Twilio** outbound and update **`next_reminder_at`** / embedded **`plan`** in Mongo as implemented.
 
-**User says “burnt out” in WhatsApp** → handled on **`POST /webhooks/twilio`** → T2 persists state → **next** uAgent or reminder respects softer pacing (metadata can also be mirrored into `agent_context` if your uAgent reads backend state before firing — follow Fetch docs for agent memory).
+**User says “burnt out” in WhatsApp** → handled on **`POST /webhooks/twilio`** → T2 can persist chat/thread state; **next** uAgent or reminder respecting softer pacing may still be **tuned** with T3/T4 (metadata can also be mirrored into `agent_context` if your uAgent reads backend state — follow Fetch docs for agent memory).
 
 This keeps **one source of truth** (FastAPI + Mongo) while the **Fetch stack** provides the **sponsor-visible agent** and **scheduling**.
 
@@ -82,9 +82,9 @@ flowchart LR
 
 - **Backend**: Python **FastAPI** (Pydantic models = JSON contract).
 - **Frontend**: **Vite + React** + TypeScript (`VITE_API_URL`).
-- **DB**: MongoDB Atlas + Motor or Beanie (or PyMongo).
+- **DB**: MongoDB Atlas + **Motor** (async; **PyMongo** driver under the hood).
 - **WhatsApp**: Twilio webhook (or Meta) hitting FastAPI.
-- **Hosting (MVP)**: **Render** (web service for `backend/`, uvicorn, env vars on dashboard). **Vercel** (static export / `npm run build` for `frontend/`). Twilio + Fetch callbacks target the **Render** URL (HTTPS).
+- **Hosting (MVP)**: **Railway** (web service for `backend/`, uvicorn, env vars on dashboard). **Vercel** (static export / `npm run build` for `frontend/`). Twilio + Fetch callbacks target the **Railway** URL (HTTPS).
 
 ## API JSON shape (single contract for web + WhatsApp)
 
@@ -186,7 +186,7 @@ Assume **~20–22h effective**. **Sync checkpoints**: start (0h), mid-build (~8h
 
 | Hours | **T1 — Frontend** | **T2 — Backend** | **T3 — WhatsApp** | **T4 — DevOps / Fetch** |
 |--------|-------------------|------------------|-------------------|-------------------------|
-| **0–2** | Scaffold Vite+TS; pages: Goal, Plan, Session | FastAPI skeleton; stub `POST /plan`; stub `POST /internal/reminders/fire` (401 without key) | Twilio sandbox + webhook stub; test outbound once | Mongo Atlas + Render/Vercel accounts; Fetch project + HTTP trigger docs |
+| **0–2** | Scaffold Vite+TS; pages: Goal, Plan, Session | FastAPI skeleton; `POST /plan` (Gemini or stub); `POST /internal/reminders/fire` (401 without key; Level B needs Mongo + plan row) | Twilio sandbox + webhook; test outbound once | Mongo Atlas + Railway/Vercel accounts; Fetch project + HTTP trigger docs |
 | **2–8** | Real `/plan` UI; render `steps[]`, `tiny_first_step` | Gemini + Pydantic + Mongo; `POST /nudge`; `/internal/reminders/fire` + Twilio outbound | Webhook commands → T2 endpoints | Deploy public HTTPS; first Fetch agent hitting callback |
 | **8–14** | Plan → session UI | Persist sessions + reminder metadata; auth for demo | Full loop: plan → nudge | E2E: Fetch → WhatsApp |
 | **14–18** | Polish + disclaimers | Harden internal route | Templates | Pitch: Gemini = copy, Fetch = proactive |
@@ -201,7 +201,7 @@ Roles are **not** meant to be silos. If **T2 (backend)** or **T1 (frontend)** is
 
 | Who | Default focus | How to offload **backend (T2)** | How to offload **frontend (T1)** |
 |-----|----------------|----------------------------------|-----------------------------------|
-| **T4 — DevOps / Fetch** | Deploy, HTTPS, secrets, Fetch → callback | **Take load off T2:** own **Render** env wiring (`MONGODB_URI`, `INTERNAL_API_KEY`, Twilio vars, `PORT` if required), **smoke-test** `/health` and `/internal/reminders/fire` with `curl`, verify **CORS** against **Vercel** origin(s), document **exact URLs** (Render API + Vercel app) for Twilio/Fetch. Pair with T2 on **deploy-only bugs** (502, cold start, missing env). Optionally implement thin glue in `internal_reminders` *only if* T2 assigns a small sub-task (keep **business rules** in T2). | **Help T1:** production **`VITE_API_URL`** (Render URL), Vercel project + preview URLs, `npm run build`, “works on school Wi‑Fi” verification, screenshot/recording setup. |
+| **T4 — DevOps / Fetch** | Deploy, HTTPS, secrets, Fetch → callback | **Take load off T2:** own **Railway** env wiring (`MONGODB_URI`, `INTERNAL_API_KEY`, Twilio vars, `PORT` if required), **smoke-test** `/health` and `/internal/reminders/fire` with `curl`, verify **CORS** against **Vercel** origin(s), document **exact URLs** (Railway API + Vercel app) for Twilio/Fetch. Pair with T2 on **deploy-only bugs** (502, cold start, missing env). Optionally implement thin glue in `internal_reminders` *only if* T2 assigns a small sub-task (keep **business rules** in T2). | **Help T1:** production **`VITE_API_URL`** (Railway URL), Vercel project + preview URLs, `npm run build`, “works on school Wi‑Fi” verification, screenshot/recording setup. |
 | **T3 — WhatsApp / Twilio** | Inbound/outbound, sandbox, webhooks | **Pair with T2:** own **Twilio console** + **request signature** validation; T2 owns the FastAPI route and calling shared services. Build **one Twilio helper module** together so T2 does not own all Twilio docs. | **Take load off T1:** if WhatsApp is delayed, add a **minimal in-app “Stuck” panel** (textarea + button) that calls **`POST /nudge`** — same API as WhatsApp. Help with **error/loading copy**, accessibility pass, or second pair of eyes on React state bugs. |
 
 **Rules of thumb**
@@ -227,7 +227,7 @@ Roles are **not** meant to be silos. If **T2 (backend)** or **T1 (frontend)** is
 | ASI:One scope creep | **Optional** demo only; core path = web + WhatsApp + uAgent callback |
 | AI latency | Short prompts, `max_tokens` cap |
 | Scope creep | Lock MVP at hour 2 |
-| Render free tier cold starts | Hit `/health` once before demo; or upgrade / keep service warm; document for judges |
+| Railway cold starts / sleep | Hit `/health` once before demo; or upgrade / keep service warm; document for judges |
 
 ## Starter repo (this codebase)
 

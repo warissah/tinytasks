@@ -40,7 +40,7 @@ def startup_mongo(app: FastAPI) -> None:
     try:
         client = AsyncIOMotorClient(uri)
     except (ConfigurationError, InvalidURI, ValueError) as exc:
-        # Bad placeholder URIs (e.g. mongodb:// with no host) crash lifespan and take down Railway/Render.
+        # Bad placeholder URIs (e.g. mongodb:// with no host) crash lifespan and take down the host (e.g. Railway).
         logger.error(
             "MONGODB_URI is set but invalid; Mongo disabled until fixed: %s",
             exc,

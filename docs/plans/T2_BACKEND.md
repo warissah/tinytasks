@@ -6,24 +6,38 @@ You own **API correctness**, **JSON schemas**, and **calling Gemini** with the o
 
 ## Your mission
 
-- Replace **stub** `POST /plan` with real Gemini output that validates against Pydantic models.
-- Implement `POST /nudge`, session routes, Mongo persistence.
-- Secure `POST /internal/reminders/fire` with `X-Internal-Key` (see `backend/app/config.py`).
-- **Strong integration (Level B):** **`POST /internal/reminders/fire`** loads **`plans`** by **`task_id`** (= **`plan_id`**), honors **`next_reminder_at`** snooze, **`agent_context.push_back_start_minutes`**, **`replan_intensity`** (`smaller_steps` / `lighter` via **`gemini_replan`** + stub fallback), then personalized **Twilio** copy. Requires **`MONGODB_URI`** for that path. See [`../MASTER_PLAN.md`](../MASTER_PLAN.md) (sections **Fetch ecosystem** and **Strong integration story**).
+- **`POST /plan`:** Gemini (`google-genai`) when **`GEMINI_API_KEY`** is set; otherwise deterministic **stub** plan — both paths validate with Pydantic and persist to **`plans`** when Mongo is configured.
+- **`POST /nudge`**, **`POST /session/start`**, **`POST /session/end`:** implemented with Mongo persistence when **`MONGODB_URI`** is set.
+- **`POST /internal/reminders/fire`:** secured with **`X-Internal-Key`** (see `backend/app/config.py`).
+- **Strong integration (Level B):** **`POST /internal/reminders/fire`** loads **`plans`** by **`task_id`** (= **`plan_id`**), honors **`next_reminder_at`** snooze, **`agent_context.push_back_start_minutes`**, **`replan_intensity`** (`smaller_steps` / `lighter` via **`gemini_replan`** + stub fallback), then personalized **Twilio** copy from stored plan fields. Requires **`MONGODB_URI`** for that path. See [`../MASTER_PLAN.md`](../MASTER_PLAN.md) (sections **Fetch ecosystem** and **Strong integration story**).
 - Keep **one source of truth** for schemas in `backend/app/schemas/` (including `app/schemas/internal.py` for `AgentCallbackContext`).
 
-**Stretch (optional):** **`/chat/message`** + **`/chat/finalize`** — conversational draft of `PlanRequest`, then **same `generate_plan` path** as **`POST /plan`**. **Polish and productization are not required for hackathon success** if the team runs out of time; the **single-shot `/plan`** flow remains the contract everyone must ship.
+**Stretch (product, not backend blocker):** **`POST /chat/message`** and **`POST /chat/finalize`** are **implemented** (conversational draft → same plan path as **`POST /plan`**). Optional polish: web UI for chat, WhatsApp free-form UX. The **single-shot `/plan`** flow remains the minimum contract for the demo.
 
 ## Where to work
 
 - `backend/app/main.py` — app factory, CORS, router includes.
-- `backend/app/routers/` — one file per area (`plan.py`, `nudge.py`, `session.py`, `internal_reminders.py`, `webhooks_twilio.py`, optional `chat.py`).
+- `backend/app/routers/` — one file per area (`plan.py`, `nudge.py`, `session.py`, `internal_reminders.py`, `webhooks_twilio.py`, `chat.py`).
 - `backend/app/schemas/` — Pydantic models shared by all routes.
 
 ## Environment
 
 - Copy `backend/.env.example` → `backend/.env`. **Do not commit `.env`.**
-- For local dev, stub routes work **without** Gemini until you add keys.
+- For local dev, **`GEMINI_API_KEY`** omitted → stub plan and stub nudges where applicable; **Mongo** omitted → persistence no-ops for plan/session routes; **`/internal/reminders/fire`** skips with a clear reason until **`MONGODB_URI`** is set.
+
+**Variables wired in `backend/app/config.py`** (see `backend/.env.example` for names and comments):
+
+| Variable | Role |
+|----------|------|
+| `APP_NAME`, `DEBUG` | App metadata / dev flag |
+| `CORS_ORIGINS` | Comma-separated browser origins (prod: add Vercel) |
+| `INTERNAL_API_KEY` | **`POST /internal/reminders/fire`** — required in production |
+| `MONGODB_URI`, `MONGODB_DATABASE` | Motor + **`plans`** / **`sessions`** / **`chat_threads`** |
+| `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_THINKING_LEVEL`, `GEMINI_LOG_TIMING` | Gemini via **`google-genai`** |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM` | Outbound WhatsApp (Twilio REST) |
+| `REMINDER_DEMO_WHATSAPP_TO` | Hackathon: destination when **`user_id`** in internal callback is not a WhatsApp address |
+
+`backend/.env.example` also lists commented placeholders (**`DEMO_API_KEY`**, optional **`FETCH_AI_*`**) not read by `Settings` today (`extra="ignore"`).
 
 ## Mongo naming (MVP) — **plans**, not **tasks**
 
@@ -66,9 +80,9 @@ Ship the **vertical slice** first; add polish only if the core path works.
 
 ## Checklist
 
-- [ ] `/docs` (Swagger) lists all routes.
-- [ ] `POST /plan` response matches the master plan JSON shape.
-- [ ] Internal route returns 401/403 if key missing.
+- [x] `/docs` (Swagger) lists all routes (FastAPI auto OpenAPI).
+- [x] `POST /plan` response matches the master plan JSON shape (`PlanResponse`).
+- [x] Internal route returns **401** if `X-Internal-Key` missing or wrong (`403` not used for this handler).
 
 ## Testing (your responsibility)
 

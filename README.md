@@ -103,7 +103,7 @@ pytest
 
 For WhatsApp/Fetch/Mongo: add keys to `backend/.env`, then repeat and use Twilio sandbox + Fetch callback URL against your deployed HTTPS URL.
 
-**Production deploy (team default):** **Render** web service for `backend/` (public HTTPS API). **Vercel** for `frontend/` static build; set **`VITE_API_URL`** in Vercel to the Render API origin. Add the Vercel URL(s) to backend **`CORS_ORIGINS`** on Render. Details: [`docs/MASTER_PLAN.md`](docs/MASTER_PLAN.md) and [`docs/plans/T4_DEVOPS_FETCH.md`](docs/plans/T4_DEVOPS_FETCH.md).
+**Production deploy (team default):** **Railway** service for `backend/` (public HTTPS API). **Vercel** for `frontend/` static build; set **`VITE_API_URL`** in Vercel to the Railway API origin. Add the Vercel URL(s) to backend **`CORS_ORIGINS`** on Railway. Details: [`docs/MASTER_PLAN.md`](docs/MASTER_PLAN.md) and [`docs/plans/T4_DEVOPS_FETCH.md`](docs/plans/T4_DEVOPS_FETCH.md).
 
 ## Repo layout
 
@@ -116,7 +116,7 @@ docs/             Master plan + per-role plans
 ## Integration contract (frozen for the hackathon)
 
 - Browser → `VITE_API_URL` (see `frontend/.env.example`).
-- FastAPI enables CORS for local dev origins; in production (Render) include your **Vercel** site origin(s).
+- FastAPI enables CORS for local dev origins; in production (Railway) include your **Vercel** site origin(s).
 - `POST /plan` returns the shared JSON shape (stub until Gemini is wired); see `docs/MASTER_PLAN.md`.
 
 ## License
