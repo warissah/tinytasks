@@ -15,8 +15,9 @@ class Settings(BaseSettings):
     # Required for POST /internal/reminders/fire in production; stub allows missing for local dev
     internal_api_key: str | None = None
 
-    # MongoDB Atlas — mongodb+srv://... (include DB name in path when you wire persistence)
+    # MongoDB Atlas — mongodb+srv://... (DB name in path, or set mongodb_database)
     mongodb_uri: str | None = None
+    mongodb_database: str | None = None
 
     # Google Gen AI (Gemini) — used by google-genai SDK; optional until routes call the model
     gemini_api_key: str | None = None
@@ -30,6 +31,9 @@ class Settings(BaseSettings):
     twilio_account_sid: str | None = None
     twilio_auth_token: str | None = None
     twilio_whatsapp_from: str | None = None
+    # Hackathon: when user_id in /internal/reminders/fire is not a phone, send here (e.g. whatsapp:+15551234567)
+    # TODO: Drop this escape hatch once Mongo maps user_id → WhatsApp (see internal_reminders router).
+    reminder_demo_whatsapp_to: str | None = None
 
 
 @lru_cache

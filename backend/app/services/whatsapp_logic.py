@@ -9,7 +9,8 @@ from app.services.mock_plan import build_stub_plan
 
 logger = logging.getLogger(__name__)
 
-# Until phone→task lives in Mongo, Twilio sandbox uses this task id for /nudge-style replies.
+# Until phone→task/plan lives in Mongo, Twilio uses this task id for /nudge-style replies.
+# TODO: Resolve task_id (and optional plan_id) from user_id for STUCK/DONE/start flows.
 HACKATHON_DEMO_TASK_ID = "hackathon-demo"
 
 

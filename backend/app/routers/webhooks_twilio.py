@@ -21,6 +21,7 @@ async def twilio_webhook(
     From: str = Form(...),
     Body: str = Form(""),
 ):
+    # TODO (T3): Validate X-Twilio-Signature with TWILIO_AUTH_TOKEN before accepting webhooks (prod / demo hardening).
     logger.info("twilio inbound from=%s body_len=%s", From, len(Body or ""))
 
     user_id = map_phone_to_user_id(From)

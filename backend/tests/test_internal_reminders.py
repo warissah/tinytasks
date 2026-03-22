@@ -32,7 +32,8 @@ def test_internal_reminder_ok_with_key() -> None:
     )
     assert res.status_code == 200
     body = res.json()
-    assert body["status"] == "queued_stub"
+    assert body["status"] == "skipped"
+    assert "Twilio" in body["detail"] or "destination" in body["detail"].lower()
 
 
 @pytest.mark.integration
@@ -52,4 +53,6 @@ def test_internal_reminder_accepts_agent_context() -> None:
         headers={"X-Internal-Key": "test-internal-key"},
     )
     assert res.status_code == 200
-    assert "agent_context" in res.json()["detail"]
+    data = res.json()
+    assert "agent_context" in data["detail"]
+    assert data["status"] == "skipped"

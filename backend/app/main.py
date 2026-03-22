@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import cors_origin_list, get_settings
+from app.db.mongo import lifespan as mongo_lifespan
 from app.routers import health, internal_reminders, nudge, plan, session, webhooks_twilio
 
 _GEMINI_LOG_HANDLER_MARKER = "_beachhacks_gemini_stderr"
@@ -34,7 +35,7 @@ def _configure_app_logging() -> None:
 def create_app() -> FastAPI:
     _configure_app_logging()
     settings = get_settings()
-    app = FastAPI(title=settings.app_name, version="0.1.0")
+    app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=mongo_lifespan)
 
     app.add_middleware(
         CORSMiddleware,

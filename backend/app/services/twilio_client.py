@@ -1,22 +1,23 @@
-import os
-
 from twilio.rest import Client
 
-TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
-TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
-TWILIO_WHATSAPP_FROM = os.getenv("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
+from app.config import get_settings
 
 
 def send_whatsapp_message(to_number: str, body: str) -> str:
-    if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN:
+    settings = get_settings()
+    sid = settings.twilio_account_sid
+    token = settings.twilio_auth_token
+    if not sid or not token:
         raise RuntimeError("Missing Twilio credentials")
 
     if not to_number.startswith("whatsapp:"):
         to_number = f"whatsapp:{to_number}"
 
-    client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+    from_number = settings.twilio_whatsapp_from or "whatsapp:+14155238886"
+
+    client = Client(sid, token)
     message = client.messages.create(
-        from_=TWILIO_WHATSAPP_FROM,
+        from_=from_number,
         to=to_number,
         body=body,
     )
