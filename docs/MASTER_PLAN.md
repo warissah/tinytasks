@@ -21,6 +21,10 @@
 
 **API vs Mongo naming:** Request bodies use **`task_id`** (e.g. `/session`, `/nudge`) — for MVP **`task_id` === `plan_id`** from **`POST /plan`**. T1 keeps rendering **`PlanResponse`** as today; renaming to **`plan_id`** everywhere is optional and needs T1 + OpenAPI agreement.
 
+### Stretch goal: chat before plan (optional)
+
+The backend may expose **`POST /chat/message`** and **`POST /chat/finalize`** so users can talk (web and/or WhatsApp) to gather intent, then **build a fresh plan** the same way as **`POST /plan`**. **If we do not ship a chat UI or polish the WhatsApp chat path, that is fine** — the hackathon still passes on the **single form → `/plan`** flow and keyword WhatsApp. Treat chat as **bonus depth**, not a blocker.
+
 ## Fetch ecosystem (ASI:One, uAgents, Agentverse) vs our stack
 
 These are **Fetch.ai** concepts from the sponsor stack; they map to our app like this:

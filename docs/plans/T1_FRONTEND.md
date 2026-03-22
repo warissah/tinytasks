@@ -11,6 +11,8 @@ You own everything the **browser** sees. The API contract is defined in [`../MAS
 - **Session** screen: start/end session → `POST /session/start`, `POST /session/end` (wire when backend persists).
 - Loading, empty, and error states (don’t block on “pretty” — block on **clear**).
 
+**Stretch (optional):** A **chat** UI calling **`POST /chat/message`** and **`POST /chat/finalize`** (OpenAPI `/docs`) if T2 has it enabled. **Skipping chat is OK** — judges still see the form → plan path. Coordinate with T2; don’t let chat block the MVP checklist below.
+
 ## Where to work
 
 - `frontend/src/` — components, pages, API client.

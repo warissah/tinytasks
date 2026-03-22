@@ -18,6 +18,8 @@ Barebones **FastAPI** + **Vite/React** monorepo: API contract, CORS, and stub ro
 
 **Fetch.ai:** **uAgents** + **Agentverse** drive proactive callbacks to FastAPI; **Gemini** stays the main “coach brain”; user replies go **WhatsApp → backend**. Details: [**Fetch ecosystem** / **Strong integration** in `docs/MASTER_PLAN.md`](docs/MASTER_PLAN.md#fetch-ecosystem-asione-uagents-agentverse-vs-our-stack).
 
+**Chat before plan (stretch):** We may wire a conversational **`/chat`** flow (web and/or WhatsApp). **Not required for a successful demo** — the must-ship path remains **goal form → `POST /plan`**. See [**Stretch goal: chat** in `docs/MASTER_PLAN.md`](docs/MASTER_PLAN.md#stretch-goal-chat-before-plan-optional).
+
 ## Quick start (no API keys required)
 
 ### Backend

@@ -13,6 +13,8 @@ You own **inbound** webhooks and **outbound** messages. Business logic stays in 
 - Commands (MVP): `start`, `stuck`, `done` — translate to `POST /plan`, `POST /nudge`, `POST /session/*` as appropriate.
 - **Outbound**: Twilio REST to send WhatsApp replies; reuse the same message templates T4 uses for Fetch-triggered pings.
 
+**Stretch (optional):** The backend may route **free-form** WhatsApp text into the same **chat** pipeline as the web app (plus **`BUILD` / `yes` / `go`**-style finalize triggers). **If that path stays rough or unused, no problem** — MVP is still keyword commands + TwiML replies.
+
 ## Where to work
 
 - `backend/app/routers/webhooks_twilio.py` — stub is present; implement Twilio validation (request signature) before hackathon demo.

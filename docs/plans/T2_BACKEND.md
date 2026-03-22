@@ -12,10 +12,12 @@ You own **API correctness**, **JSON schemas**, and **calling Gemini** with the o
 - **Strong integration (Level B):** When the Fetch **uAgent** calls `/internal/reminders/fire`, accept optional **`agent_context`** (`energy_hint`, `push_back_start_minutes`, `replan_intensity`). Load **plan** (and user/thread state) from **Mongo** (`plans` collection; `task_id` in payloads = `plan_id`), merge with last **WhatsApp** state, then: update **next nudge time**, call **Gemini** to **subdivide or soften** the plan when `replan_intensity` is `smaller_steps` / `lighter`, send outbound line via **Twilio**. See [`../MASTER_PLAN.md`](../MASTER_PLAN.md) (sections **Fetch ecosystem** and **Strong integration story**).
 - Keep **one source of truth** for schemas in `backend/app/schemas/` (including `app/schemas/internal.py` for `AgentCallbackContext`).
 
+**Stretch (optional):** **`/chat/message`** + **`/chat/finalize`** — conversational draft of `PlanRequest`, then **same `generate_plan` path** as **`POST /plan`**. **Polish and productization are not required for hackathon success** if the team runs out of time; the **single-shot `/plan`** flow remains the contract everyone must ship.
+
 ## Where to work
 
 - `backend/app/main.py` — app factory, CORS, router includes.
-- `backend/app/routers/` — one file per area (`plan.py`, `nudge.py`, `session.py`, `internal_reminders.py`, `webhooks_twilio.py`).
+- `backend/app/routers/` — one file per area (`plan.py`, `nudge.py`, `session.py`, `internal_reminders.py`, `webhooks_twilio.py`, optional `chat.py`).
 - `backend/app/schemas/` — Pydantic models shared by all routes.
 
 ## Environment
