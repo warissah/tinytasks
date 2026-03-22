@@ -55,6 +55,52 @@ def test_unknown_chat_reply_includes_next_commands_when_ready() -> None:
     asyncio.run(_run())
 
 
+def test_continue_phrase_uses_linked_plan_instead_of_chat_turn() -> None:
+    async def _run() -> None:
+        db = object()
+        plan = build_stub_plan("finish linked lists assignment")
+        with patch(
+            "app.services.whatsapp_logic.load_linked_plan_for_thread",
+            AsyncMock(return_value=({"plan_id": plan.plan_id}, plan)),
+        ):
+            with patch(
+                "app.services.whatsapp_logic.run_chat_turn",
+                AsyncMock(),
+            ) as run_chat_turn:
+                reply = await get_whatsapp_reply_async(db, "user-123", "unknown", "keep going")
+
+        run_chat_turn.assert_not_awaited()
+        assert "You're still on:" in reply
+        assert plan.summary in reply
+        assert "Next step:" in reply
+        assert "STUCK" in reply
+        assert "DONE" in reply
+
+    asyncio.run(_run())
+
+
+def test_what_next_phrase_uses_linked_plan_instead_of_chat_turn() -> None:
+    async def _run() -> None:
+        db = object()
+        plan = build_stub_plan("finish linked lists assignment")
+        with patch(
+            "app.services.whatsapp_logic.load_linked_plan_for_thread",
+            AsyncMock(return_value=({"plan_id": plan.plan_id}, plan)),
+        ):
+            with patch(
+                "app.services.whatsapp_logic.run_chat_turn",
+                AsyncMock(),
+            ) as run_chat_turn:
+                reply = await get_whatsapp_reply_async(db, "user-123", "unknown", "what next")
+
+        run_chat_turn.assert_not_awaited()
+        assert "You're still on:" in reply
+        assert "Next step:" in reply
+        assert "STUCK" in reply
+
+    asyncio.run(_run())
+
+
 def test_help_command_lists_supported_commands() -> None:
     async def _run() -> None:
         reply = await get_whatsapp_reply_async(None, "user-123", "help", "help")

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import UTC, datetime
 
 from fastapi import HTTPException
@@ -16,6 +17,7 @@ from app.schemas.chat import DraftPlanFields
 from app.schemas.nudge import NudgeRequest
 from app.schemas.plan import PlanRequest
 from app.services.chat_pipeline import (
+    load_linked_plan_for_thread,
     load_or_finalize_thread_plan,
     persist_plan_for_thread,
     run_chat_turn,
@@ -32,6 +34,14 @@ logger = logging.getLogger(__name__)
 
 # Fallback when Mongo is off or no plan is linked (local / sandbox).
 HACKATHON_DEMO_TASK_ID = "hackathon-demo"
+_CONTINUE_PATTERNS = (
+    re.compile(r"^\s*keep going\s*$", re.IGNORECASE),
+    re.compile(r"^\s*continue\s*$", re.IGNORECASE),
+    re.compile(r"^\s*what(?:'s| is)? next\??\s*$", re.IGNORECASE),
+    re.compile(r"^\s*what should i do next\??\s*$", re.IGNORECASE),
+    re.compile(r"^\s*next\b[\s!?]*$", re.IGNORECASE),
+    re.compile(r"^\s*go on\s*$", re.IGNORECASE),
+)
 
 
 async def resolve_nudge_task_id_for_whatsapp(
@@ -211,6 +221,20 @@ def _plan_ready_reply(plan) -> str:
     )
 
 
+def _continue_on_plan_reply(plan) -> str:
+    first = _extract_tiny_first_step(plan) or _extract_first_step_title(plan)
+    if first:
+        return f"You're still on: {plan.summary}\n\nNext step: {first}"
+    return f"You're still on: {plan.summary}\n\nNext step: do the smallest possible next move."
+
+
+def _is_continue_prompt(raw_body: str) -> bool:
+    text = (raw_body or "").strip()
+    if not text:
+        return False
+    return any(pattern.match(text) for pattern in _CONTINUE_PATTERNS)
+
+
 def _build_stuck_reply_with_task_id(task_id: str, raw_body: str) -> str:
     context = (raw_body or "").strip() or "WhatsApp stuck"
     if _has_gemini():
@@ -317,6 +341,16 @@ async def get_whatsapp_reply_async(
             return await _build_stuck_reply_async(db, user_id, raw_body)
 
         if command == "unknown":
+            if _is_continue_prompt(raw_body):
+                linked = await load_linked_plan_for_thread(
+                    db,
+                    whatsapp_thread_id_for_user(user_id),
+                )
+                if linked is not None:
+                    return _append_hint(
+                        _continue_on_plan_reply(linked[1]),
+                        _next_step_hint(),
+                    )
             out = await run_chat_turn(
                 db,
                 thread_id=None,
