@@ -60,8 +60,9 @@ async def twilio_webhook(
 ):
     logger.info("twilio inbound from=%s body_len=%s", From, len(Body or ""))
 
-    user_id = map_phone_to_user_id(From)
-    command = parse_command(Body)
+    user_id = get_or_create_user_id_from_phone(From)
+    command = normalize_command(Body)
+
     reply = get_whatsapp_reply(user_id=user_id, command=command, raw_body=Body)
 
     twiml = build_twiml_message(reply)
