@@ -6,8 +6,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo import IndexModel
 from pymongo.errors import ConfigurationError, InvalidURI
 
+from app.constants import USERS_COLLECTION
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -61,8 +63,35 @@ def shutdown_mongo(app: FastAPI) -> None:
         app.state.mongo_db = None
 
 
+async def ensure_indexes(app: FastAPI) -> None:
+    db = getattr(app.state, "mongo_db", None)
+    if db is None:
+        return
+    try:
+        await db[USERS_COLLECTION].create_indexes(
+            [
+                IndexModel([("user_id", 1)], unique=True, name="user_id_unique"),
+                IndexModel(
+                    [("email_normalized", 1)],
+                    unique=True,
+                    name="email_normalized_unique",
+                    partialFilterExpression={"email_normalized": {"$type": "string"}},
+                ),
+                IndexModel(
+                    [("phone_normalized", 1)],
+                    unique=True,
+                    name="phone_normalized_unique",
+                    partialFilterExpression={"phone_normalized": {"$type": "string"}},
+                ),
+            ]
+        )
+    except Exception:
+        logger.exception("Failed to ensure MongoDB indexes")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     startup_mongo(app)
+    await ensure_indexes(app)
     yield
     shutdown_mongo(app)

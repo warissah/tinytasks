@@ -33,13 +33,39 @@ def test_resolve_nudge_task_id_falls_back_to_latest_phone_plan() -> None:
             AsyncMock(return_value=None),
         ):
             with patch(
-                "app.services.whatsapp_logic.find_latest_plan_id_for_phone",
-                AsyncMock(return_value="plan-from-phone"),
+                "app.services.whatsapp_logic.find_latest_plan_id_for_user_id",
+                AsyncMock(return_value=None),
             ):
-                from app.services.whatsapp_logic import resolve_nudge_task_id_for_whatsapp
+                with patch(
+                    "app.services.whatsapp_logic.find_latest_plan_id_for_phone",
+                    AsyncMock(return_value="plan-from-phone"),
+                ):
+                    from app.services.whatsapp_logic import resolve_nudge_task_id_for_whatsapp
 
-                r = await resolve_nudge_task_id_for_whatsapp(object(), "+15550002222")
-                assert r == "plan-from-phone"
+                    r = await resolve_nudge_task_id_for_whatsapp(object(), "+15550002222")
+                    assert r == "plan-from-phone"
+
+    asyncio.run(_run())
+
+
+def test_resolve_nudge_task_id_prefers_latest_user_plan_before_phone() -> None:
+    async def _run() -> None:
+        with patch(
+            "app.services.whatsapp_logic.get_active_plan_id_for_thread",
+            AsyncMock(return_value=None),
+        ):
+            with patch(
+                "app.services.whatsapp_logic.find_latest_plan_id_for_user_id",
+                AsyncMock(return_value="plan-from-user"),
+            ):
+                with patch(
+                    "app.services.whatsapp_logic.find_latest_plan_id_for_phone",
+                    AsyncMock(return_value="plan-from-phone"),
+                ):
+                    from app.services.whatsapp_logic import resolve_nudge_task_id_for_whatsapp
+
+                    r = await resolve_nudge_task_id_for_whatsapp(object(), "user-123")
+                    assert r == "plan-from-user"
 
     asyncio.run(_run())
 
@@ -51,13 +77,17 @@ def test_resolve_nudge_task_id_returns_none_when_unlinked() -> None:
             AsyncMock(return_value=None),
         ):
             with patch(
-                "app.services.whatsapp_logic.find_latest_plan_id_for_phone",
+                "app.services.whatsapp_logic.find_latest_plan_id_for_user_id",
                 AsyncMock(return_value=None),
             ):
-                from app.services.whatsapp_logic import resolve_nudge_task_id_for_whatsapp
+                with patch(
+                    "app.services.whatsapp_logic.find_latest_plan_id_for_phone",
+                    AsyncMock(return_value=None),
+                ):
+                    from app.services.whatsapp_logic import resolve_nudge_task_id_for_whatsapp
 
-                r = await resolve_nudge_task_id_for_whatsapp(object(), "+15550003333")
-                assert r is None
+                    r = await resolve_nudge_task_id_for_whatsapp(object(), "+15550003333")
+                    assert r is None
 
     asyncio.run(_run())
 

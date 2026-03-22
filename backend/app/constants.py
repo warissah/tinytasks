@@ -14,5 +14,6 @@ PLAN_SAFETY_NOTE = (
 PLANS_COLLECTION = "plans"
 SESSIONS_COLLECTION = "sessions"
 CHAT_THREADS_COLLECTION = "chat_threads"
+USERS_COLLECTION = "users"
 # Optional: map opaque user_id (e.g. Fetch UUID) → WhatsApp for /internal/reminders/fire
 USER_WHATSAPP_COLLECTION = "user_whatsapp"

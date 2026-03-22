@@ -6,13 +6,16 @@ import {
 import { useAppContext } from "../context/AppContext";
 import { getProgress } from "../utils/taskUtils";
 import { postPlan } from "../api/client";
+import { getStoredGuestUser } from "../utils/guestUser";
 
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  hasGuestUser: boolean;
+  onResetGuestUser: () => void;
 }
 
-export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export default function Sidebar({ collapsed, onToggle, hasGuestUser, onResetGuestUser }: SidebarProps) {
   const { projects, activeProject, setActiveProject, activeFilter, setActiveFilter, addProject, deletedTasks } = useAppContext();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({ p1: true });
   const [search, setSearch] = useState("");
@@ -40,11 +43,14 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     setCreating(true);
     setCreateError(null);
     try {
+      const guestUser = getStoredGuestUser();
       const plan = await postPlan({
         goal: newGoal.trim(),
         horizon: "today",
         available_minutes: 60,
         energy: "medium",
+        user_id: guestUser?.user_id,
+        phone: guestUser?.phone,
       });
       const totalMin = plan.tiny_first_step.estimated_minutes +
         plan.steps.reduce((acc, s) => acc + s.estimated_minutes, 0);
@@ -234,6 +240,14 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
               <Sparkles className="w-3 h-3" />
               <span>Tiny steps, big progress</span>
             </div>
+            {hasGuestUser && (
+              <button
+                onClick={onResetGuestUser}
+                className="mt-3 text-[11px] text-gray-500 hover:text-gray-900 transition-colors"
+              >
+                Reset Demo User
+              </button>
+            )}
           </div>
         </div>
       </aside>

@@ -28,7 +28,13 @@ async def create_plan(request: Request, body: PlanRequest) -> PlanResponse:
     db = getattr(request.app.state, "mongo_db", None)
     if db is not None:
         try:
-            await insert_plan(db, body.goal, response, user_phone=body.phone)
+            await insert_plan(
+                db,
+                body.goal,
+                response,
+                user_phone=body.phone,
+                user_id=body.user_id,
+            )
         except Exception:
             logger.exception("Failed to persist plan to Mongo")
 

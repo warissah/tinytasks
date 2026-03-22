@@ -7,6 +7,7 @@ from fastapi.responses import Response
 from twilio.request_validator import RequestValidator
 
 from app.config import get_settings
+from app.db.users import get_user_id_for_phone
 from app.services.command_parser import parse_command
 from app.services.twilio_service import (
     build_twiml_message,
@@ -66,9 +67,11 @@ async def twilio_webhook(request: Request):
 
     logger.info("twilio inbound from=%s body_len=%s", from_number, len(body or ""))
 
-    user_id = get_or_create_user_id_from_phone(from_number)
-    command = parse_command(body)
     db = getattr(request.app.state, "mongo_db", None)
+    user_id = await get_user_id_for_phone(db, from_number)
+    if user_id is None:
+        user_id = get_or_create_user_id_from_phone(from_number)
+    command = parse_command(body)
 
     try:
         reply = await get_whatsapp_reply_async(db, user_id, command, body)

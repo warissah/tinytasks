@@ -14,6 +14,8 @@ export type PlanRequest = {
   horizon: "today" | "week" | "long";
   available_minutes: number;
   energy: "low" | "medium" | "high";
+  user_id?: string;
+  phone?: string;
 };
 
 export type PlanResponse = {
@@ -48,6 +50,32 @@ export async function postPlan(body: PlanRequest): Promise<PlanResponse> {
     throw new Error(`POST /plan failed: ${res.status} ${text}`);
   }
   return res.json() as Promise<PlanResponse>;
+}
+
+export type CreateGuestUserRequest = {
+  email: string;
+  phone: string;
+};
+
+export type CreateGuestUserResponse = {
+  user_id: string;
+  email: string;
+  phone: string;
+  is_new_user: boolean;
+  persistence: "mongo" | "demo_fallback";
+};
+
+export async function postGuestUser(body: CreateGuestUserRequest): Promise<CreateGuestUserResponse> {
+  const res = await fetch(`${baseUrl}/users/guest`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`POST /users/guest failed: ${res.status} ${text}`);
+  }
+  return res.json() as Promise<CreateGuestUserResponse>;
 }
 
 export type NudgeRequest = {

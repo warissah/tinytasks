@@ -15,6 +15,7 @@ async def insert_plan(
     plan: PlanResponse,
     *,
     user_phone: str | None = None,
+    user_id: str | None = None,
 ) -> None:
     doc: dict[str, Any] = {
         "plan_id": plan.plan_id,
@@ -24,6 +25,8 @@ async def insert_plan(
     }
     if user_phone and str(user_phone).strip():
         doc["user_phone"] = str(user_phone).strip()
+    if user_id and str(user_id).strip():
+        doc["user_id"] = str(user_id).strip()
     await db[PLANS_COLLECTION].insert_one(doc)
 
 
@@ -42,6 +45,22 @@ async def find_latest_plan_id_for_phone(
         return None
     doc = await db[PLANS_COLLECTION].find_one(
         {"user_phone": phone},
+        sort=[("created_at", -1)],
+    )
+    if doc is None:
+        return None
+    pid = doc.get("plan_id")
+    return str(pid).strip() if pid else None
+
+
+async def find_latest_plan_id_for_user_id(
+    db: AsyncIOMotorDatabase, user_id: str
+) -> str | None:
+    user_id = (user_id or "").strip()
+    if not user_id:
+        return None
+    doc = await db[PLANS_COLLECTION].find_one(
+        {"user_id": user_id},
         sort=[("created_at", -1)],
     )
     if doc is None:

@@ -6,7 +6,7 @@ from fastapi import HTTPException
 
 from app.config import get_settings
 from app.db.chat_threads import get_active_plan_id_for_thread
-from app.db.plans import find_latest_plan_id_for_phone
+from app.db.plans import find_latest_plan_id_for_phone, find_latest_plan_id_for_user_id
 from app.schemas.nudge import NudgeRequest
 from app.schemas.plan import PlanRequest
 from app.services.chat_pipeline import run_chat_turn, run_finalize, whatsapp_thread_id_for_user
@@ -35,6 +35,9 @@ async def resolve_nudge_task_id_for_whatsapp(
         return linked
     if db is None:
         return None
+    by_user = await find_latest_plan_id_for_user_id(db, user_id)
+    if by_user:
+        return by_user
     return await find_latest_plan_id_for_phone(db, user_id)
 
 

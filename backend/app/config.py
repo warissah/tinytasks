@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     # (e.g. whatsapp:+15551234567). Still useful for demos after user_whatsapp exists.
     reminder_demo_whatsapp_to: str | None = None
 
+    # Hackathon fallback when Mongo is unavailable during onboarding
+    demo_user_id: str | None = None
+    demo_user_email: str | None = None
+    demo_user_phone: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:

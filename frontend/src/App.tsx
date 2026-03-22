@@ -9,17 +9,19 @@ import MainCanvas from "./components/MainCanvas";
 import AIChatInput from "./components/AIChatInput";
 import type { PlanResponse } from "./api/client";
 import { getDemoEvents } from "./api/client";
+import { clearStoredGuestUser, getStoredGuestUser } from "./utils/guestUser";
 
 export default function App() {
-  const [showOnboarding, setShowOnboarding] = useState(true);
+  const [guestUser, setGuestUser] = useState(() => getStoredGuestUser());
+  const [showOnboarding, setShowOnboarding] = useState(!guestUser);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [projects, setProjects] = useState(INITIAL_PROJECTS);
   const [activeProject, setActiveProject] = useState<string | null>("p1");
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [planResponse, setPlanResponse] = useState<PlanResponse | null>(null);
   const [deletedTasks, setDeletedTasks] = useState<DeletedTask[]>([]);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [userPhone, setUserPhone] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(guestUser?.email ?? null);
+  const [userPhone, setUserPhone] = useState<string | null>(guestUser?.phone ?? null);
   const [whatsAppNudge, setWhatsAppNudge] = useState<{ message: string; two_minute_action: string } | null>(null);
   const lastEventTs = useRef<number | undefined>(undefined);
 
@@ -90,6 +92,7 @@ export default function App() {
   };
 
   const handlePlanComplete = (plan: PlanResponse, goal: string, email: string, phone: string) => {
+    setGuestUser(getStoredGuestUser());
     setUserEmail(email);
     setUserPhone(phone);
     setPlanResponse(plan);
@@ -98,6 +101,14 @@ export default function App() {
     setActiveProject(planProject.id);
     setActiveFilter(null);
     setShowOnboarding(false);
+  };
+
+  const handleResetGuestUser = () => {
+    clearStoredGuestUser();
+    setGuestUser(null);
+    setUserEmail(null);
+    setUserPhone(null);
+    setShowOnboarding(true);
   };
 
   const toggleSubtask = useCallback((taskId: string, subtaskId: string) => {
@@ -218,7 +229,12 @@ export default function App() {
         )}
 
         <div className="flex">
-          <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(c => !c)} />
+          <Sidebar
+            collapsed={sidebarCollapsed}
+            onToggle={() => setSidebarCollapsed(c => !c)}
+            hasGuestUser={guestUser !== null}
+            onResetGuestUser={handleResetGuestUser}
+          />
 
           <div className="flex-1 min-w-0 relative">
             <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-gray-200/60 px-4 py-3 flex items-center gap-3 lg:hidden">

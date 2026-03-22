@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Brain, Timer, Coffee, Sparkles, ArrowRight, Mail, Phone } from "lucide-react";
-import { postPlan } from "../api/client";
+import { postGuestUser, postPlan } from "../api/client";
 import type { PlanResponse } from "../api/client";
+import { storeGuestUser } from "../utils/guestUser";
 
 interface OnboardingProps {
   onComplete: (plan: PlanResponse, goal: string, email: string, phone: string) => void;
@@ -34,13 +35,20 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     setLoading(true);
     setError(null);
     try {
+      const guestUser = await postGuestUser({
+        email: finalAnswers.email,
+        phone: finalAnswers.phone,
+      });
+      storeGuestUser(guestUser);
       const plan = await postPlan({
         goal: finalAnswers.goal,
         horizon: "today",
         available_minutes: TIME_TO_MINUTES[finalAnswers.time] ?? 30,
         energy: finalAnswers.energy as "low" | "medium" | "high",
+        user_id: guestUser.user_id,
+        phone: guestUser.phone,
       });
-      onComplete(plan, finalAnswers.goal, finalAnswers.email, finalAnswers.phone);
+      onComplete(plan, finalAnswers.goal, guestUser.email, guestUser.phone);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
       setLoading(false);
