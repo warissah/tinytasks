@@ -18,9 +18,7 @@ def handle_done(user_id: str) -> str:
 
 def handle_unknown() -> str:
     return (
-        "I can help with:\n"
-        "- start\n"
-        "- stuck\n"
-        "- done\n\n"
-        "Try: stuck"
+        "Just chat naturally — I'll ask when I'm ready to build your plan. "
+        "Then reply BUILD (or YES / GO). "
+        "Quick commands: START, STUCK, DONE."
     )
