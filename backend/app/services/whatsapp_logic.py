@@ -190,13 +190,22 @@ async def get_whatsapp_reply_async(
     """
     WhatsApp entry: finalize + free-form chat share one thread per phone (wa-<user_id>).
     start / stuck / done stay on the keyword path.
+    Events are written to MongoDB so the web app can poll and reflect changes.
     """
+    from app.db.demo_events import insert_demo_event
+
     try:
         if command == "finalize":
             try:
                 plan = await run_finalize(db, whatsapp_thread_id_for_user(user_id))
             except HTTPException as e:
                 return _http_detail(e)
+            if db is not None:
+                goal = (raw_body or "").strip() or plan.summary
+                await insert_demo_event(db, "new_plan", {
+                    "plan": plan.model_dump(mode="json"),
+                    "goal": goal,
+                })
             first = plan.tiny_first_step.title
             return (
                 f"Plan ready.\n{plan.summary}\n\nFirst step: {first}\n\n"
@@ -211,6 +220,51 @@ async def get_whatsapp_reply_async(
                 stable_thread_id=whatsapp_thread_id_for_user(user_id),
             )
             return out.reply[:1500]
+
+        if command == "done":
+            reply = handle_done(user_id)
+            if db is not None:
+                await insert_demo_event(db, "task_complete", {})
+            return reply
+
+        if command in ("start", "plan"):
+            plan = _build_plan_from_text(raw_body)
+            tiny = _extract_tiny_first_step(plan)
+            reply = f"Start here: {tiny}" if tiny else "Start here: do the smallest possible first step."
+            if db is not None and hasattr(plan, "model_dump"):
+                goal_text = (raw_body or "").strip()
+                if goal_text.lower().startswith("plan"):
+                    goal_text = goal_text[4:].strip(" :.-")
+                await insert_demo_event(db, "new_plan", {
+                    "plan": plan.model_dump(mode="json"),
+                    "goal": goal_text or plan.summary,
+                })
+            return reply
+
+        if command == "stuck":
+            nudge_data = None
+            if _has_gemini():
+                try:
+                    nudge_data = generate_nudge(
+                        NudgeRequest(task_id=HACKATHON_DEMO_TASK_ID, context=raw_body or "stuck via WhatsApp")
+                    )
+                except Exception:
+                    logger.exception("Gemini nudge failed in WhatsApp stuck flow")
+            if nudge_data:
+                reply = f"{nudge_data.message}\n\n2 min try: {nudge_data.two_minute_action}"
+                if db is not None:
+                    await insert_demo_event(db, "nudge", {
+                        "message": nudge_data.message,
+                        "two_minute_action": nudge_data.two_minute_action,
+                    })
+            else:
+                reply = "Got you. Try this: write just ONE bullet point. Only 2 minutes."
+                if db is not None:
+                    await insert_demo_event(db, "nudge", {
+                        "message": reply,
+                        "two_minute_action": "Write one bullet point. Just one.",
+                    })
+            return reply
 
         return get_whatsapp_reply(user_id, command, raw_body)
     except Exception:
