@@ -1,36 +1,46 @@
+from __future__ import annotations
+
 import logging
-from typing import Any
 
 from fastapi import HTTPException
 
 from app.config import get_settings
 from app.schemas.nudge import NudgeRequest
+from app.schemas.plan import PlanRequest
 from app.services.chat_pipeline import run_chat_turn, run_finalize, whatsapp_thread_id_for_user
 from app.services.gemini_nudge import generate_nudge
-from app.services.mock_logic import handle_done, handle_stuck, handle_unknown
+from app.services.gemini_plan import generate_plan
+from app.services.mock_logic import handle_done, handle_unknown
 from app.services.mock_plan import build_stub_plan
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 logger = logging.getLogger(__name__)
 
-# Until phone→task/plan lives in Mongo, Twilio uses this task id for /nudge-style replies.
-# TODO: Resolve task_id (and optional plan_id) from user_id for STUCK/DONE/start flows.
+# Until phone→task lives in Mongo, Twilio sandbox uses this task id for /nudge-style replies.
 HACKATHON_DEMO_TASK_ID = "hackathon-demo"
 
 
-def _extract_first_step(plan: Any) -> str | None:
-    """
-    Safely extract the first step from different possible PlanResponse shapes.
-    Works whether build_stub_plan returns:
-    - a Pydantic model
-    - a dict
-    - steps as strings
-    - steps as objects/dicts with title/text/description
-    """
+def _has_gemini() -> bool:
+    try:
+        settings = get_settings()
+        return bool(settings.gemini_api_key)
+    except Exception:
+        return False
+
+
+def _extract_tiny_first_step(plan) -> str | None:
     if plan is None:
         return None
 
-    # Pydantic model -> dict
+    if hasattr(plan, "tiny_first_step") and plan.tiny_first_step:
+        tiny = plan.tiny_first_step
+        title = getattr(tiny, "title", None)
+        description = getattr(tiny, "description", None)
+        if title and description:
+            return f"{title} — {description}"
+        if title:
+            return str(title)
+
     if hasattr(plan, "model_dump"):
         data = plan.model_dump()
     elif isinstance(plan, dict):
@@ -38,78 +48,129 @@ def _extract_first_step(plan: Any) -> str | None:
     else:
         data = None
 
-    # Case 1: dict-like object with a steps list
     if isinstance(data, dict):
-        steps = data.get("steps") or data.get("tasks") or data.get("subtasks") or []
-        if steps:
-            first = steps[0]
-            if isinstance(first, str):
-                return first
-            if isinstance(first, dict):
-                return (
-                    first.get("title")
-                    or first.get("text")
-                    or first.get("description")
-                    or first.get("task")
-                )
-
-    # Case 2: object with steps/tasks/subtasks attributes
-    for attr in ("steps", "tasks", "subtasks"):
-        if hasattr(plan, attr):
-            steps = getattr(plan, attr) or []
-            if steps:
-                first = steps[0]
-                if isinstance(first, str):
-                    return first
-                if isinstance(first, dict):
-                    return (
-                        first.get("title")
-                        or first.get("text")
-                        or first.get("description")
-                        or first.get("task")
-                    )
-                for field in ("title", "text", "description", "task"):
-                    if hasattr(first, field):
-                        value = getattr(first, field)
-                        if value:
-                            return str(value)
+        tiny = data.get("tiny_first_step") or {}
+        title = tiny.get("title")
+        description = tiny.get("description")
+        if title and description:
+            return f"{title} — {description}"
+        if title:
+            return str(title)
 
     return None
+
+
+def _extract_first_step_title(plan) -> str | None:
+    if plan is None:
+        return None
+
+    if hasattr(plan, "steps"):
+        steps = getattr(plan, "steps") or []
+        if steps:
+            first = steps[0]
+            title = getattr(first, "title", None)
+            description = getattr(first, "description", None)
+            if title and description:
+                return f"{title} — {description}"
+            if title:
+                return str(title)
+
+    if hasattr(plan, "model_dump"):
+        data = plan.model_dump()
+    elif isinstance(plan, dict):
+        data = plan
+    else:
+        data = None
+
+    if isinstance(data, dict):
+        steps = data.get("steps") or []
+        if steps:
+            first = steps[0]
+            if isinstance(first, dict):
+                title = first.get("title")
+                description = first.get("description")
+                if title and description:
+                    return f"{title} — {description}"
+                if title:
+                    return str(title)
+            elif isinstance(first, str):
+                return first
+
+    return None
+
+
+def _build_plan_from_text(raw_body: str):
+    goal = (raw_body or "").strip()
+    if goal.lower().startswith("plan"):
+        goal = goal[4:].strip(" :.-")
+
+    if not goal:
+        goal = "Help me get started on my task."
+
+    request = PlanRequest(
+        goal=goal,
+        horizon="today",
+        available_minutes=30,
+        energy="medium",
+    )
+
+    if _has_gemini():
+        try:
+            return generate_plan(request)
+        except Exception:
+            logger.exception("Gemini plan generation failed in WhatsApp flow")
+
+    return build_stub_plan(request.goal)
+
+
+def _build_start_reply(raw_body: str) -> str:
+    plan = _build_plan_from_text(raw_body)
+    tiny_first = _extract_tiny_first_step(plan)
+    if tiny_first:
+        return f"Start here: {tiny_first}"
+
+    first_step = _extract_first_step_title(plan)
+    if first_step:
+        return f"Start here: {first_step}"
+
+    return "Start here: do the smallest possible first step."
+
+
+def _build_stuck_reply(raw_body: str) -> str:
+    context = (raw_body or "").strip() or "WhatsApp stuck"
+    if _has_gemini():
+        try:
+            out = generate_nudge(
+                NudgeRequest(
+                    task_id=HACKATHON_DEMO_TASK_ID,
+                    context=context,
+                )
+            )
+            return f"{out.message}\n\n2 min try: {out.two_minute_action}"
+        except Exception:
+            logger.exception("Gemini nudge failed in WhatsApp flow")
+
+    return "Got you. Try this: write just ONE bullet point. Only 2 minutes."
 
 
 def get_whatsapp_reply(user_id: str, command: str, raw_body: str = "") -> str:
     try:
         if command == "start":
-            plan = build_stub_plan("Help me get started on my task.")
-            first_step = _extract_first_step(plan)
+            return _build_start_reply(raw_body)
 
-            if first_step:
-                return f"Start here: {first_step}"
-
-            return "Start here: do the smallest possible first step."
+        if command == "plan":
+            return _build_start_reply(raw_body)
 
         if command == "stuck":
-            settings = get_settings()
-            if settings.gemini_api_key:
-                try:
-                    out = generate_nudge(
-                        NudgeRequest(
-                            task_id=HACKATHON_DEMO_TASK_ID,
-                            context=(raw_body or "").strip() or "WhatsApp stuck",
-                        )
-                    )
-                    return f"{out.message}\n\n2 min try: {out.two_minute_action}"
-                except Exception:
-                    logger.exception("Gemini nudge from WhatsApp stuck failed")
-            return handle_stuck(user_id)
+            return _build_stuck_reply(raw_body)
 
         if command == "done":
             return handle_done(user_id)
 
         return handle_unknown()
 
-    except Exception as e:
-        print(f"[WhatsApp Error] {e}")
+    except Exception:
+        logger.exception("WhatsApp reply generation failed")
         return "Something went wrong on our side. Please try again."
 
 

@@ -1,12 +1,23 @@
 import React from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Dashboard from "./pages/Dashboard";
+import Person from "./pages/person";
+import Landing from "./pages/landing";
+
 
 const App: React.FC = () => {
+  
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <h1 className="text-3xl font-bold text-blue-600">
-        Welcome to ADHD Execution Coach 🚀
-      </h1>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route
+          path="/"
+          element={<Landing onLogin={() => {}} />}
+        />
+ <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/person" element={<Person onComplete={() => {}} />} />
+      </Routes>
+    </BrowserRouter>
   );
 };
 

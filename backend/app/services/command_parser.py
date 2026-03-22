@@ -23,5 +23,7 @@ def parse_command(body: str) -> str:
         return "stuck"
     if "done" in text_loose:
         return "done"
+    if "plan" in text:  
+        return "plan"
 
     return "unknown"
